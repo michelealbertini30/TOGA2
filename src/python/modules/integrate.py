@@ -11,7 +11,7 @@ import os
 from collections import defaultdict
 from dataclasses import dataclass
 from shutil import which
-from typing import Dict, Iterable, List, Optional, Set, TextIO, Union
+from typing import Dict, Iterable, List, Optional, Set, TextIO, Tuple, Union
 
 import networkx as nx
 
@@ -36,6 +36,7 @@ BED_FIELD_NUM: int = 12
 COL2CLASS: Dict[str, str] = {y: x for x, y in CLASS_TO_COL.items()}
 EXON_HEADER: str = "projection"
 INTACT_EXON: str = "I"
+INTACT_PROJECTIONS: Tuple[str, str] = ("FI", "I")
 SUPPORTED: str = "CHAIN_SUPPORTED"
 PLUS: str = "+"
 
@@ -141,6 +142,9 @@ class ExonRecord:
     end: int
     strand: bool
 
+    def length(self) -> int:
+        return self.end - self.start
+
 
 class AnnotationIntegrator(CommandLineManager):
     __slots__ = (
@@ -155,6 +159,8 @@ class AnnotationIntegrator(CommandLineManager):
         "discarded_items",
         "final_projections",
         "accepted_statuses",
+        "min_rel_novelty_threshold",
+        "min_abs_novelty_threshold",
         "output",
         "gene_tsv",
         "gene_bed",
@@ -182,6 +188,8 @@ class AnnotationIntegrator(CommandLineManager):
         ref_data: Union[str, os.PathLike],
         output: Union[str, os.PathLike],
         accepted_statuses: str,
+        min_rel_novelty_threshold: float,
+        min_abs_novelty_threshold: int,
         prefix: str,
         skip_ucsc: bool,
         chrom_sizes: Union[str, os.PathLike, None],
@@ -205,6 +213,8 @@ class AnnotationIntegrator(CommandLineManager):
             self.accepted_statuses: List[str] = [
                 x for x in accepted_statuses.split(",") if x
             ]  ## TODO: Add sanity checks
+        self.min_rel_novelty_threshold: float = min_rel_novelty_threshold
+        self.min_abs_novelty_threshold: int = min_abs_novelty_threshold
         self.query_projections: Dict[str, BedRecord] = {}
         self.query_proj2ref: Dict[str, str] = {}
         self.query_annotation: Dict[str, List[str]] = defaultdict(list)
@@ -552,6 +562,7 @@ class AnnotationIntegrator(CommandLineManager):
                 # out_paralog: bool = name_out in self.paralog_pool
                 # out_ppgene: bool = name_out in self.ppgene_pool
                 out_paralog: bool = base_proj_name(name_out) in self.paralog_pool
+                out_valid_paralog: bool = out_paralog and proj_out.loss_status in INTACT_PROJECTIONS
                 out_ppgene: bool = base_proj_name(name_out) in self.ppgene_pool
                 out_ortholog: bool = not (out_paralog or out_ppgene)
                 discarded: bool = False
@@ -577,6 +588,7 @@ class AnnotationIntegrator(CommandLineManager):
                     # in_paralog: bool = name_in in self.paralog_pool
                     # in_ppgene: bool = name_in in self.ppgene_pool
                     in_paralog: bool = base_proj_name(name_in) in self.paralog_pool
+                    in_valid_paralog: bool = in_paralog and proj_in.loss_status in  INTACT_PROJECTIONS
                     in_ppgene: bool = base_proj_name(name_in) in self.ppgene_pool
                     in_ortholog: bool = not (in_paralog or in_ppgene)
                     has_intersection: bool = False
@@ -595,10 +607,10 @@ class AnnotationIntegrator(CommandLineManager):
                             break
                     if has_intersection:
                         ## ortholog + paralog/pp: discard the non-orthologous prediction
-                        if out_ortholog and not in_ortholog:
+                        if out_ortholog and not in_valid_paralog:#in_ortholog:
                             self.discarded_items.add(name_in)
                             continue
-                        if not out_ortholog and in_ortholog:
+                        if not out_valid_paralog and in_ortholog:#not out_ortholog and in_ortholog:
                             self.discarded_items.add(name_out)
                             discarded = True
                             break
@@ -652,7 +664,14 @@ class AnnotationIntegrator(CommandLineManager):
                 ## set a semaphore for whether the user-defined loss classes
                 ## have been encountered in the clique
                 allowed_class_found: bool = False
+                ## keep track of the paralogs present in this clique
+                paralogs: Set[str] = set()
                 for name in component:
+                    is_paralog: bool = base_proj_name(name) in self.paralog_pool
+                    ## paralogs are to be handled later
+                    if is_paralog:
+                        paralogs.add(name)
+                        continue
                     proj: BedRecord = self.query_projections[name]
                     status: int = CLASS_TO_NUM[proj.loss_status]
                     allowed_status: bool = proj.loss_status in self.accepted_statuses
@@ -701,7 +720,56 @@ class AnnotationIntegrator(CommandLineManager):
                     for line in proj.lines:
                         selected[line] = name
                     name2lines_selected[name] = proj.lines
+                ## now, process the paralogs
+                ## first, retrieve all the exon records
+                valid_exons: Dict[str, List[ExonRecord]] = defaultdict(list)
+                for proj_name in selected.values:
+                    proj: BedRecord = self.query_projections[proj_name]
+                    for exon in proj.exons:
+                        valid_exons[exon.chrom].append(exon)
+                ## sort them chromwise
+                for chrom in valid_exons:
+                    valid_exons[chrom].sort(key=lambda x: (x.start, x.end))
+                for paralog in paralogs:
+                    proj: BedRecord = self.query_projections[paralog]
+                    ## ignore if exactly the same item has been already encountered
+                    ## (by default, paralogs are expected to have one 'line' alone)
+                    if all(x in selected for x in proj.lines):
+                        continue
+                    to_add: bool = False
+                    for paralog_exon in proj.exons:
+                        ## record the minimal overlap
+                        min_abs: int = paralog_exon.length()
+                        # min_rel: Union[float, None] = None
+                        for valid_exon in valid_exons:
+                            if paralog_exon.end < valid_exon.start:
+                                break
+                            if paralog_exon.start > valid_exon.end:
+                                continue
+                            ## find the intersection size
+                            inter_size: int = intersection(
+                                paralog_exon.start, 
+                                paralog_exon.end,
+                                valid_exon.start,
+                                valid_exon.end,
+                            )
+                            inter_size = max(inter_size, 0)
+                            min_abs = min(min_abs, paralog_exon.length() - inter_size)
+                        ## if at least one exon 
+                        min_rel: float = min_abs / paralog_exon.length()
+                        if (
+                            min_abs >= self.min_abs_novelty_threshold and min_rel >= self.min_rel_novelty_threshold
+                        ):
+                            to_add = True
+                            break
+                    if to_add:
+                        for line in proj.lines:
+                            selected[line] = paralog
+                        name2lines_selected[paralog] = proj.lines
                 ## all the projections have been processed; name the gene and define its coordinates
+                fitlered_component: nx.Graph = component.copy()
+                nodes_to_remove: Set[str] = {x for x in fitlered_component.nodes() if x not in selected}
+                fitlered_component.remove_nodes_from(nodes_to_remove)
                 all_projs: List[BedRecord] = [
                     self.query_projections[x] for x in selected.values()
                 ]

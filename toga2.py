@@ -144,6 +144,9 @@ aligner_options: PrettyGroup = PrettyGroup(
 intronic_options: PrettyGroup = PrettyGroup(
     "IntronIC options", help="IntronIC execution settings & control",
 )
+integration_options: PrettyGroup = PrettyGroup(
+    "Integration options", help="Parameters for meta-gene inference and isoform selection"
+)
 out_options: PrettyGroup = PrettyGroup("Output")
 misc_options: PrettyGroup = PrettyGroup("Miscellaneous")
 
@@ -1767,7 +1770,7 @@ by combining annotation with different references""",
     show_default=True,
     help="A path to a directory to save the results to",
 )
-@loss_options.option(
+@integration_options.option(
     "--accepted_statuses",
     "-l",
     type=str,
@@ -1780,6 +1783,30 @@ for query gene inference and final annotation content unless no projection
 of these statuses occurs in a query locus. 
 Supported symbols are: %s. Keyword ALL lets all possible statuses in."""
     % ",".join(Constants.ALL_LOSS_SYMBOLS),
+)
+@integration_options.option(
+    "--min_rel_novelty_threshold",
+    "-minrel",
+    type=click.FloatRange(min=0.0, max=1.0),
+    metavar="FLOAT",
+    default=0.3,
+    show_default=True,
+    help=(
+        "Minimal fraction of exon length not overlapping with orthologous items for paralogous "
+        "sequences to be retained"
+    ),
+)
+@integration_options.option(
+    "--min_abs_novelty_threshold",
+    "-minabs",
+    type=click.IntRange(min=1, max=None),
+    metavar="INT",
+    default=15,
+    show_default=True,
+    help=(
+        "Minimal number of exon bases not overlapping with orthologous items for paralogous "
+        "sequences to be retained"
+    ),
 )
 @browser_options.option(
     "--prefix",
