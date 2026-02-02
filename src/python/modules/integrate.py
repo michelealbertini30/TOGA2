@@ -607,10 +607,10 @@ class AnnotationIntegrator(CommandLineManager):
                             break
                     if has_intersection:
                         ## ortholog + paralog/pp: discard the non-orthologous prediction
-                        if out_ortholog and not in_valid_paralog:#in_ortholog:
+                        if out_ortholog and not in_ortholog and not in_valid_paralog:
                             self.discarded_items.add(name_in)
                             continue
-                        if not out_valid_paralog and in_ortholog:#not out_ortholog and in_ortholog:
+                        if not out_ortholog and not out_valid_paralog and in_ortholog:#not out_ortholog and in_ortholog:
                             self.discarded_items.add(name_out)
                             discarded = True
                             break
@@ -667,6 +667,8 @@ class AnnotationIntegrator(CommandLineManager):
                 ## keep track of the paralogs present in this clique
                 paralogs: Set[str] = set()
                 for name in component:
+                    if "NM_001080213#F7#314" in name:
+                        print(f"HLbosTau10.NM_001080213#F7#314 found; {list(component.nodes)=}")
                     is_paralog: bool = base_proj_name(name) in self.paralog_pool
                     ## paralogs are to be handled later
                     if is_paralog:
@@ -723,7 +725,7 @@ class AnnotationIntegrator(CommandLineManager):
                 ## now, process the paralogs
                 ## first, retrieve all the exon records
                 valid_exons: Dict[str, List[ExonRecord]] = defaultdict(list)
-                for proj_name in selected.values:
+                for proj_name in selected.values():
                     proj: BedRecord = self.query_projections[proj_name]
                     for exon in proj.exons:
                         valid_exons[exon.chrom].append(exon)
@@ -741,7 +743,7 @@ class AnnotationIntegrator(CommandLineManager):
                         ## record the minimal overlap
                         min_abs: int = paralog_exon.length()
                         # min_rel: Union[float, None] = None
-                        for valid_exon in valid_exons:
+                        for valid_exon in valid_exons[proj.chrom]:
                             if paralog_exon.end < valid_exon.start:
                                 break
                             if paralog_exon.start > valid_exon.end:
@@ -767,64 +769,76 @@ class AnnotationIntegrator(CommandLineManager):
                             selected[line] = paralog
                         name2lines_selected[paralog] = proj.lines
                 ## all the projections have been processed; name the gene and define its coordinates
-                fitlered_component: nx.Graph = component.copy()
-                nodes_to_remove: Set[str] = {x for x in fitlered_component.nodes() if x not in selected}
-                fitlered_component.remove_nodes_from(nodes_to_remove)
-                all_projs: List[BedRecord] = [
-                    self.query_projections[x] for x in selected.values()
-                ]
-                ## define the coordinates; that's the easy part
-                chrom: str = all_projs[0].chrom
-                strand: str = "+" if all_projs[0].strand else "-"
-                start: int = min([x.start for x in all_projs])
-                end: int = max([x.end for x in all_projs])
-                ## define the name; a slightly trickier part
-                ## first, define how many gene participate in the locus annotation
-                genes: Set[str] = {
-                    self.ref_proj2gene.get(get_proj2trans(x.name)[0], x.name)
-                    for x in all_projs
+                filtered_component: nx.Graph = component.copy()
+                nodes_to_remove: Set[str] = {
+                    x for x in filtered_component.nodes() if x not in selected.values()
                 }
-                ## second, define prefix
-                if any(base_proj_name(x.name) in self.paralog_pool for x in all_projs):
-                # if any(x.name in self.paralog_pool for x in all_projs):
-                    prefix: str = "paralog_"
-                elif any(base_proj_name(x.name) in self.ppgene_pool for x in all_projs):
-                # elif any(x.name in self.ppgene_pool for x in all_projs):
-                    prefix: str = "retro_"
-                elif not allowed_class_found:
-                    if best_status > CLASS_TO_NUM["M"]:
-                        prefix: str = "lost_"
-                    else:
-                        prefix: str = "missing_"
+                filtered_component.remove_nodes_from(nodes_to_remove)
+                if NX_VERSION < 2.4:
+                    minor_components = list(nx.connected_component_subgraphs(filtered_component))
                 else:
-                    prefix: str = ""
-                ## define the main name; for simplicity, do not bother with chain numbers
-                if len(genes) == 1:  ## single gene; assign its name to query locus
-                    gene: str = genes.pop()
-                elif (
-                    len(genes) < 4
-                ):  ## up to three genes; combine their names separated by comma
-                    gene: str = ",".join(genes)
-                else:  ## more than three genes; gene+
-                    gene: str = genes.pop() + "+"
-                name: str = prefix + gene
-                ## done! now, write the output
-                ## for gene BED, it's a single line
-                gene_bed: str = "\t".join(
-                    map(str, [chrom, start, end, name, 0, strand])
-                )
-                gb.write(gene_bed + "\n")
-                ## then, iterate over projection
-                for proj in all_projs:
-                    basename: str = base_proj_name(proj.name)
-                    self.final_projections.add(basename)
-                    ## get the reference name and add it as a prefix
-                    species: str = self.query_proj2ref[proj.name]
-                    ## gene isoform file; write the gene and projections names
-                    gt.write(name + "\t" + f"{species}.{proj.name}" + "\n")
-                    ## projection BED file; write the original BED line
-                    for proj_bed in proj.return_bed_line(prefix=species):
-                        qb.write(proj_bed + "\n")
+                    minor_components = [
+                        filtered_component.subgraph(c) for c in nx.connected_components(filtered_component)
+                    ]
+                for minor_component in minor_components:
+                    # all_projs: List[BedRecord] = [
+                    #     self.query_projections[x] for x in selected.values()
+                    # ]
+                    all_projs: List[BedRecord] = [
+                        self.query_projections[x] for x in minor_component.nodes()
+                    ]
+                    ## define the coordinates; that's the easy part
+                    chrom: str = all_projs[0].chrom
+                    strand: str = "+" if all_projs[0].strand else "-"
+                    start: int = min([x.start for x in all_projs])
+                    end: int = max([x.end for x in all_projs])
+                    ## define the name; a slightly trickier part
+                    ## first, define how many gene participate in the locus annotation
+                    genes: Set[str] = {
+                        self.ref_proj2gene.get(get_proj2trans(x.name)[0], x.name)
+                        for x in all_projs
+                    }
+                    ## second, define prefix
+                    if all(base_proj_name(x.name) in self.paralog_pool for x in all_projs):
+                    # if any(x.name in self.paralog_pool for x in all_projs):
+                        prefix: str = "paralog_"
+                    elif all(base_proj_name(x.name) in self.ppgene_pool for x in all_projs):
+                    # elif any(x.name in self.ppgene_pool for x in all_projs):
+                        prefix: str = "retro_"
+                    elif not allowed_class_found:
+                        if best_status > CLASS_TO_NUM["M"]:
+                            prefix: str = "lost_"
+                        else:
+                            prefix: str = "missing_"
+                    else:
+                        prefix: str = ""
+                    ## define the main name; for simplicity, do not bother with chain numbers
+                    if len(genes) == 1:  ## single gene; assign its name to query locus
+                        gene: str = genes.pop()
+                    elif (
+                        len(genes) < 4
+                    ):  ## up to three genes; combine their names separated by comma
+                        gene: str = ",".join(genes)
+                    else:  ## more than three genes; gene+
+                        gene: str = genes.pop() + "+"
+                    name: str = prefix + gene
+                    ## done! now, write the output
+                    ## for gene BED, it's a single line
+                    gene_bed: str = "\t".join(
+                        map(str, [chrom, start, end, name, 0, strand])
+                    )
+                    gb.write(gene_bed + "\n")
+                    ## then, iterate over projection
+                    for proj in all_projs:
+                        basename: str = base_proj_name(proj.name)
+                        self.final_projections.add(basename)
+                        ## get the reference name and add it as a prefix
+                        species: str = self.query_proj2ref[proj.name]
+                        ## gene isoform file; write the gene and projections names
+                        gt.write(name + "\t" + f"{species}.{proj.name}" + "\n")
+                        ## projection BED file; write the original BED line
+                        for proj_bed in proj.return_bed_line(prefix=species):
+                            qb.write(proj_bed + "\n")
 
     def prepare_ucsc_file(self) -> None:
         """
