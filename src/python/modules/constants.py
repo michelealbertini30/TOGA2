@@ -193,7 +193,6 @@ class Constants:
         ),
         "gene_inference": (
             "all_deprecated_projs",
-            "final_rejection_log",
             "query_genes_raw",
             "query_genes_bed_raw",
             "discarded_overextended_projections",

@@ -873,16 +873,16 @@ class TogaMain(CommandLineManager):
 
         ## Step 6: Infer query gene structure
         if self._execute_step("gene_inference"):
-            ## 6a: Aggregate rejection reports from all the previous steps
-            if not self.rejection_log_cleaned:
-                self._to_log("Aggregating rejection reports")
-                self.aggregate_rejection_reports()
-            self._to_log(
-                "Rejected items from all the finished steps are aggregated at %s"
-                % (self.final_rejection_log),
-                "info",
-            )
-            ## 6b: Infer query genes as the step name suggests
+            ## DEPRECATED - 6a: Aggregate rejection reports from all the previous steps
+            # if not self.rejection_log_cleaned:
+            #     self._to_log("Aggregating rejection reports")
+            #     self.aggregate_rejection_reports()
+            # self._to_log(
+            #     "Rejected items from all the finished steps are aggregated at %s"
+            #     % (self.final_rejection_log),
+            #     "info",
+            # )
+            ## Infer query genes as the step name suggests
             self._to_log("Inferring query genes")
             self.infer_query_genes()
             self._to_log("Query genes successfully inferred")
@@ -900,7 +900,7 @@ class TogaMain(CommandLineManager):
                 )
             self._to_log("Skipping gene loss summary step as suggested")
 
-        ## Step 6: Summarise ortholog presence status on projection, transcript,
+        ## Step 7: Summarise ortholog presence status on projection, transcript,
         ## and (if requested) gene levels
         if self._execute_step("loss_summary"):
             ## 6b: Summarise loss data
@@ -916,7 +916,7 @@ class TogaMain(CommandLineManager):
             self._to_log("Skipping gene loss summary step as suggested")
         self._sanity_check(self.result_checker.check_loss_summary())
 
-        ## Step 7: Resolve orthology status for all reference genes
+        ## Step 8: Resolve orthology status for all reference genes
         if self._execute_step("orthology"):
             ## resolve orthology relationships with a graph-based method
             if not self.skip_tree_resolver:
@@ -950,7 +950,7 @@ class TogaMain(CommandLineManager):
         if self.skip_tree_resolver:
             self._sanity_check(self.result_checker.check_orthology_resolution())
 
-        ## Step 8: If tree-based resolution was requested, summarize its results
+        ## Step 9: If tree-based resolution was requested, summarize its results
         ## and adjust orthology resolution accordingly
         if self._execute_step("summarize_trees") and not self.skip_tree_resolver:
             self._to_log("Adding gene tree step results to orthology resolution")
@@ -972,7 +972,7 @@ class TogaMain(CommandLineManager):
         if not self.skip_tree_resolver:
             self._sanity_check(self.result_checker.check_orthology_resolution())
 
-        ## Step 9: Finalize the output
+        ## Step 10: Finalize the output
         if self._execute_step("finalize"):
             # self._to_log('Creating exon FASTA HDF5 storage for SLEASY')
             self._to_log("Aggregatig deprecated projection lists")
@@ -1011,7 +1011,7 @@ class TogaMain(CommandLineManager):
                 )
             self._to_log("Skipping output finalizing step as suggested")
 
-        ## Step 10: Prepare UCSC browser input files
+        ## Step 11: Prepare UCSC browser input files
         if self._execute_step("ucsc_report"):
             self._to_log("Preparing BigBed track for UCSC Genome Browser")
             self.prepare_bigbed_track()
@@ -1024,7 +1024,7 @@ class TogaMain(CommandLineManager):
                 )
             self._to_log("Skipping UCSC report preparation step as suggested")
 
-        ## Step 11: Final touch
+        ## Step 12: Final touch
         ## Drop the summary
         self.get_summary()
 
@@ -1890,7 +1890,7 @@ class TogaMain(CommandLineManager):
         args: List[str] = [
             self.ref_annotation,
             self.bed_file_copy,
-            self.prefiltered_transcripts,
+            self.final_rejection_log,
             "-ln",
             self.project_id,
         ]
@@ -1968,7 +1968,7 @@ class TogaMain(CommandLineManager):
             "-j",
             f"{self.feature_job_num}",
             "-r",
-            self.feature_rejection_log,
+            self.final_rejection_log,
             "-ln",
             self.project_id,
         ]
@@ -2087,10 +2087,14 @@ class TogaMain(CommandLineManager):
         )
         rej_log: str = os.path.join(self.classification_dir, "rejection_report.tsv")
         if os.path.exists(rej_log):
-            rejection_move_cmd: str = f"mv {rej_log} {self.class_rejection_log}"
-            _ = self._exec(
-                rejection_move_cmd, "Moving classification rejection log failed"
-            )
+            with open(rej_log, "r") as ih, open(self.final_rejection_log, "a") as oh:
+                for line in ih:
+                    line = line.strip()
+                    oh.write(line + '\n')
+            # rejection_move_cmd: str = f"mv {rej_log} {self.class_rejection_log}"
+            # _ = self._exec(
+            #     rejection_move_cmd, "Moving classification rejection log failed"
+            # )
         else:
             self._to_log("No items were rejected at classification step")
         ## TODO: Here goes a sanity check
@@ -2153,7 +2157,7 @@ class TogaMain(CommandLineManager):
             "assembly_gap_size": self.assembly_gap_size,
             "paralog_report": self.paralog_report,
             "processed_pseudogene_report": self.processed_pseudogene_report,
-            "rejection_report": self.preprocessing_rejection_log,
+            "rejection_report": self.final_rejection_log,
             "log_name": self.project_id,
             "bigwig2wig_binary": self.bigwig2wig_binary,
             "verbose": True,
@@ -2240,7 +2244,7 @@ class TogaMain(CommandLineManager):
                 )
             rej_path: str = os.path.join(dir_path, "genes_rejection_reason.tsv")
             if os.path.exists(rej_path):
-                rej_aggr_cmd: str = f"{Constants.SETUP} cat {rej_path} >> {self.preprocessing_rejection_log}"
+                rej_aggr_cmd: str = f"{Constants.SETUP} cat {rej_path} >> {self.final_rejection_log}"
                 _ = self._exec(
                     rej_aggr_cmd,
                     "Preprocessing step rejection log aggregation failed at batch %s"
@@ -2281,7 +2285,7 @@ class TogaMain(CommandLineManager):
             "-m",
             self.matrix_file,
             "-rr",
-            self.redundancy_rejection_log,
+            self.final_rejection_log,
             "-scm",
             self.spliceai_correction_mode,
         ]
@@ -2411,6 +2415,7 @@ class TogaMain(CommandLineManager):
 
     def aggregate_rejection_reports(self) -> None:
         """
+        DEPRECATED since v2.0.7b: Rejection log is now added to inplace
         Aggregates rejection reports from various stages into a final report
         """
         if os.path.exists(self.final_rejection_log):
@@ -2467,7 +2472,7 @@ class TogaMain(CommandLineManager):
             "--insufficiently_covered_orthologs",
             self.discarded_overextended_projections,
             "-rl",
-            self.gene_inference_rejection_log,
+            self.final_rejection_log,
         ]
         if self.isoform_file is not None:
             # args.extend(('-r', self.cds_bed_file, '-i', self.isoform_file))

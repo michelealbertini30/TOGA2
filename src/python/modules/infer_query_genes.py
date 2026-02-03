@@ -250,7 +250,7 @@ class Coords:
 @click.option(
     "--rejection_log",
     "-rl",
-    type=click.File("w", lazy=True),
+    type=click.File("a", lazy=True),
     default=None,
     show_default=True,
     help=("A path to to write the discarded entries to"),

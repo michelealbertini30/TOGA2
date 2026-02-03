@@ -38,7 +38,7 @@ def consistent_name(name: str) -> bool:
 @click.argument("ref_bed", type=click.File("r", lazy=True), metavar="REF_BED")
 @click.argument("output", type=click.File("w", lazy=True), metavar="OUTPUT")
 @click.argument(
-    "rejection_log", type=click.File("w", lazy=True), metavar="REJECTION_LOG"
+    "rejection_log", type=click.File("a", lazy=True), metavar="REJECTION_LOG"
 )
 @click.option(
     "--contigs",

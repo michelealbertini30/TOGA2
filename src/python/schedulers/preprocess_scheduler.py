@@ -624,7 +624,7 @@ class PreprocessingScheduler(CommandLineManager):
         """
         if not self.rejected_transcripts:
             return
-        with open(self.rejection_report, "w") as h:
+        with open(self.rejection_report, "a") as h:
             for line in self.rejected_transcripts:
                 h.write(line + "\n")
 

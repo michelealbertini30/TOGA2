@@ -1109,7 +1109,7 @@ class CesarScheduler(CommandLineManager):
     def rejection_report(self) -> None:
         if not self.rejected_transcripts:
             return
-        with open(self.rejection_file, "w") as h:
+        with open(self.rejection_file, "a") as h:
             for line in self.rejected_transcripts:
                 h.write(line + "\n")
 
