@@ -13,7 +13,7 @@ from typing import Dict, List, Optional, TextIO, Tuple, Union
 import click
 from ete3 import Tree
 
-from .cesar_wrapper_constants import LOSS_STATUSES
+from .cesar_wrapper_constants import CLASS_TO_NUM, LOSS_STATUSES
 from .constants import Headers
 from .shared import CommandLineManager, hex_code
 
@@ -262,21 +262,35 @@ class CodonAligner(CommandLineManager):
             ) and self.ref_exon_path is None
             if ref_found:
                 self.ref_name = species
-            proj: str = projection_names[0]
             rejected: bool = False
             if self.loss_statuses:
-                accepted_loss_status: bool = self.check_loss_status(path, proj)
-                if not accepted_loss_status:
+                # accepted_loss_status: bool = self.check_loss_status(path, proj)
+                # if not accepted_loss_status:
+                #     self._to_log(
+                #         (
+                #             "Projection %s does not comply with the accepted lost statuses "
+                #             "provided in species %s; accepted statuses are: %s"
+                #         )
+                #         % (proj, species, ",".join(self.loss_statuses)),
+                #         "warning",
+                #     )
+                #     self.no_sequence_queries.append(species)
+                #     rejected = True
+                status2proj: Dict[str, str] = self.check_loss_status(path, projection_names)
+                highest_status: str = max(status2proj.keys(), key=lambda x: CLASS_TO_NUM[x])
+                if highest_status not in self.loss_statuses:
                     self._to_log(
                         (
-                            "Projection %s does not comply with the accepted lost statuses "
-                            "provided in species %s; accepted statuses are: %s"
+                            "Neither of the found projections comply with the accepted lost statuses"
+                            "in species %s; accepted statuses are: %s"
                         )
-                        % (proj, species, ",".join(self.loss_statuses)),
+                        % (species, ",".join(self.loss_statuses)),
                         "warning",
                     )
                     self.no_sequence_queries.append(species)
                     rejected = True
+                projection_names: List[str] = status2proj[highest_status]
+            proj: str = min(projection_names, key=lambda x: int(x.split("#")[-1].split(",")[0]))
             exons: Dict[str, int] = self.extract_sequences(
                 path, proj, infer_phases=ref_found
             )
@@ -365,7 +379,8 @@ class CodonAligner(CommandLineManager):
                 out_projs.append(proj_name)
         return out_projs
 
-    def check_loss_status(self, path: str, proj: str) -> bool:
+    # def check_loss_status(self, path: str, proj: str) -> bool:
+    def check_loss_status(self, path: str, projections: List[str]) -> Dict[str, str]:
         """
         Checks whether an orthologous sequence has an accepted loss status
         defined by the user
@@ -375,6 +390,7 @@ class CodonAligner(CommandLineManager):
             self._die(
                 "File %s is missing from the input directory %s" % (LOSS_FILE, path)
             )
+        status2proj: Dict[str, List[str]] = defaultdict(list)
         with open(loss_file, "r") as h:
             for i, line in enumerate(h, start=1):
                 line = line.rstrip()
@@ -388,9 +404,13 @@ class CodonAligner(CommandLineManager):
                         "Improperly formatting found in file %s at line %i"
                         % (loss_file, i)
                     )
-                if data[1] != proj:
+                # if data[1] != proj:
+                #     continue
+                # return data[2] in self.loss_statuses
+                if data[1] not in projections:
                     continue
-                return data[2] in self.loss_statuses
+                status2proj[data[2]].append(data[2])
+        return status2proj
 
     def extract_sequences(
         self,
