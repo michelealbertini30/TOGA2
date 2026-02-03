@@ -5,7 +5,7 @@ __pycache__/
 
 # temporary, legacy, and lab-internal code
 _toga2.py
-
+HL_resources/
 patch_scripts/
 extra/
 _extra/
