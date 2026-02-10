@@ -231,6 +231,7 @@ class CodonAligner(CommandLineManager):
                 "Successfully extracted %i exons for reference %s"
                 % (len(ref_sequences), self.ref_name)
             )
+        non_missing_queries: int = 0
         for i, line in enumerate(input_dirs):
             path: str = line.rstrip()
             if not path:
@@ -249,14 +250,15 @@ class CodonAligner(CommandLineManager):
             self._to_log(
                 "Found %i projection names for species %s" % (num_proj_found, species)
             )
+            non_missing_queries += 1
             if num_proj_found > 1:
                 self._to_log(
                     "Duplicated entry for projection %s in species %s"
                     % (self.transcript, species),
                     "warning",
                 )
-                self.no_sequence_queries.append(species)
-                continue
+                # self.no_sequence_queries.append(species)
+                # continue
             ref_found: bool = (
                 species == self.ref_name or i == 0
             ) and self.ref_exon_path is None
@@ -311,6 +313,12 @@ class CodonAligner(CommandLineManager):
             self._to_log(
                 "Extracted %i exon sequences for species %s" % (len(exons), species)
             )
+        if non_missing_queries == 0:
+            self._to_log(
+                "No 1:1 orthology found in any query for transcript %s" % self.transcript,
+                "warning"
+            )
+            self._exit()
         self._to_log("Proceeding to alignment step")
         self.run_alignment()
         self._to_log("Writing output fasta to %s" % self.output.name)
@@ -409,7 +417,7 @@ class CodonAligner(CommandLineManager):
                 # return data[2] in self.loss_statuses
                 if data[1] not in projections:
                     continue
-                status2proj[data[2]].append(data[2])
+                status2proj[data[2]].append(data[1])
         return status2proj
 
     def extract_sequences(
@@ -578,7 +586,7 @@ class CodonAligner(CommandLineManager):
                 elif self.aligner == PRANK:
                     cmd: str = PRANK_BEST_PRACTICE.format(*aln_format)
                     if self.tree is not None:
-                        cmd += f" -t={tmp_tree_path}"
+                        cmd += f" -t={tmp_tree_path} -prunetree"
                     if self.show_ancestors:
                         cmd += PRANK_FOR_ANCESTRAL
                         anc_fa = tmp_fasta_out_path + ".best.anc.fas"
