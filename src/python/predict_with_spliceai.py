@@ -77,6 +77,17 @@ WIGGLE_HEADER_TEMPLATE: str = "fixedStep chrom={} start={} step=1 span=1\n"
     help="A path to directory to write the results to",
 )
 @click.option(
+    "--batch_prefix",
+    "-b",
+    type=str,
+    metavar="BATCH_PREFIX",
+    default=None,
+    show_default=False,
+    help=(
+        "Prefix for the output files to organize the output combination"
+    )
+)
+@click.option(
     "--log_file",
     type=click.Path(exists=False),
     metavar="PATH",
@@ -135,6 +146,7 @@ class SpliceAiRunner(CommandLineManager):
         twobittofa_binary: Optional[Union[click.Path, None]] = None,
         wigtobigwig_binary: Optional[Union[click.Path, None]] = None,
         output: Optional[click.Path] = None,
+        batch_prefix: Optional[click.Path] = None,
         log_file: Optional[click.Path] = None,
         verbose: Optional[bool] = False,
     ) -> None:
@@ -150,12 +162,12 @@ class SpliceAiRunner(CommandLineManager):
         self.round_to: int = round_to
         self.min_prob: float = min_prob
 
-        self.acc_plus_file: str = os.path.join(output, f"{hex_code()}AcceptorPlus.wig")
-        self.do_plus_file: str = os.path.join(output, f"{hex_code()}DonorPlus.wig")
-        self.acc_minus_file: str = os.path.join(
-            output, f"{hex_code()}AcceptorMinus.wig"
-        )
-        self.do_minus_file: str = os.path.join(output, f"{hex_code()}DonorMinus.wig")
+        prefix: str = batch_prefix if batch_prefix is not None else hex_code()
+
+        self.acc_plus_file: str = os.path.join(output, f"{prefix}AcceptorPlus.wig")
+        self.do_plus_file: str = os.path.join(output, f"{prefix}DonorPlus.wig")
+        self.acc_minus_file: str = os.path.join(output, f"{prefix}AcceptorMinus.wig")
+        self.do_minus_file: str = os.path.join(output, f"{prefix}DonorMinus.wig")
 
         self.twobittofa_binary: Union[str, None] = twobittofa_binary
         self.wigtobigwig_binary: Union[str, None] = wigtobigwig_binary
@@ -229,7 +241,7 @@ class SpliceAiRunner(CommandLineManager):
         # this code was provided by the SpliceAI authors
         ## import the models and
         self._to_log("Loading SpliceAI models")
-        context: int = 10000
+        context: int = 10000 ## TODO: Move to constants?
         paths: Iterable[str] = ("models/spliceai{}.h5".format(x) for x in range(1, 6))
         models = [load_model(resource_filename("spliceai", x)) for x in paths]
         self._to_log("Finished loading model")
@@ -280,56 +292,51 @@ class SpliceAiRunner(CommandLineManager):
                         else:
                             amh.write(wiggle_header)
                             dmh.write(wiggle_header)
+                        # print(f"Before the truncation: {len(acceptor_prob)=}, {len(donor_prob)=}")
+                        start_index: int = start_offset
+                        end_index: int = len(seq) - end_offset
                         if strand:
-                            start_index: int = start_offset
-                            end_index: int = len(seq) - end_offset
-                            acceptor_prob = acceptor_prob[start_index:end_index]
-                            donor_prob = donor_prob[start_index:end_index]
-                        else:
-                            start_index: int = end_offset
-                            end_index: int = len(seq) - start_offset
-                            acceptor_prob = acceptor_prob[start_index:end_index][::-1]
-                            donor_prob = donor_prob[start_index:end_index][::-1]
-                        ## process the results
-                        ## positive strand annotation is more straightforward
-                        # if strand:
-                        #     # if we start at coordinate zero we can't shift a null
-                        #     # => choose arbitrary value 0.0
-                        #     if start_index == 0:
-                        #         # print("Insert 1", file=sys.stderr)
-                        #         donor_prob = donor_prob[:end_index]
-                        #         donor_prob = np.insert(donor_prob, 0, 0.0)
-                        #         #donor_prob = np.insert(donor_prob, len(donor_prob)-1, 0.0)
-                        #     else:
-                        #         donor_prob = donor_prob[start_index - 1:end_index]
-
-                        #     # handle acceptors
-                        #     if end_offset == 0:
-                        #         acceptor_prob = acceptor_prob[start_index + 1:]
-                        #         acceptor_prob = np.insert(acceptor_prob, len(acceptor_prob) - 1, 0.0)
-                        #         #acceptor_prob = np.insert(acceptor_prob, len(acceptor_prob) - 1, 0.0)
-                        #     else:
-                        #         acceptor_prob = acceptor_prob[start_index + 1:end_index + 1]
-                        # # negative strand requires some additional tweaks
-                        # else:
-                        #     start_index: int = end_offset
-                        #     end_index: int = len(seq) - start_offset
-                        #     # if we start at coordinate zero we can't shift a null
-                        #     # => choose arbitrary value 0.0
-                        #     if start_index == 0:
-                        #         acceptor_prob = acceptor_prob[start_index:end_index + 1][::-1]
-                        #         acceptor_prob = np.insert(acceptor_prob, 0, 0.0)
-                        #         #acceptor_prob = np.insert(acceptor_prob, len(acceptor_prob) - 1, 0.0)
-                        #     else:
-                        #         acceptor_prob = acceptor_prob[start_index - 1:end_index + 1][::-1]
-
-                        #     # handle donors
-                        #     if end_offset == 0:
-                        #         donor_prob = donor_prob[start_index + 1:end_index + 1][::-1]
-                        #         donor_prob = np.insert(donor_prob, len(donor_prob) - 1, 0.0)
-                        #         #donor_prob = np.insert(donor_prob, len(donor_prob) - 1, 0.0)
-                        #     else:
-                        #         donor_prob = donor_prob[start_index + 1:end_index + 1][::-1]
+                            # start_index: int = start_offset
+                            # end_index: int = len(seq) - end_offset
+                            if start_index == 0:
+                                donor_prob = donor_prob[start_index:end_index - 1]
+                                # print(f"First chunk; positive donor prob before the value insertion, length={len(donor_prob)}")
+                                donor_prob = np.insert(donor_prob, 0, 0.0)
+                                # print(f"First chunk; positive donor prob after the value insertion, length={len(donor_prob)}")
+                            else:
+                                # donor_prob = donor_prob[start_index:end_index]
+                                donor_prob = donor_prob[start_index-1:end_index-1]
+                                # print(f"Middle chunk; positive donor prob, length={len(donor_prob)}")
+                            if end_offset == 0:
+                                acceptor_prob = acceptor_prob[start_index+1:end_index]
+                                # print(f"Last chunk; positive acceptor prob before the value insertion, length={len(acceptor_prob)}")
+                                acceptor_prob = np.insert(acceptor_prob, len(acceptor_prob) - 1, 0.0)
+                                # print(f"Last chunk; positive acceptor prob after the value insertion, length={len(acceptor_prob)}")
+                            else:
+                                acceptor_prob = acceptor_prob[start_index+1:end_index+1]
+                                # print(f"Middle chunk; positive acceptor prob, length={len(acceptor_prob)}")
+                        else: ## TO BE FIXED
+                            # start_index: int = end_offset
+                            # end_index: int = len(seq) - start_offset
+                            if start_index == 0:
+                                acceptor_prob = acceptor_prob[::-1][start_index:end_index-1]
+                                # print(f"First chunk; Negative acceptor prob before inserting the value, length={len(acceptor_prob)}")
+                                acceptor_prob = np.insert(acceptor_prob, 0, 0.0)
+                                # print(f"First chunk;Negative acceptor prob after inserting the value, length={len(acceptor_prob)}")
+                            else:
+                                # acceptor_prob = acceptor_prob[::-1][start_index:end_index]
+                                acceptor_prob = acceptor_prob[::-1][start_index-1:end_index-1]
+                                # print(f"Middle chunk; negative acceptor prob, length={len(acceptor_prob)}")
+                            if end_offset == 0:
+                                donor_prob = donor_prob[::-1][start_index+1:end_index+1]
+                                # print(f"Last chunk; negative donor prob before the value insertion, length={len(donor_prob)}")
+                                donor_prob = np.insert(donor_prob, len(donor_prob) - 1, 0.0)
+                                # print(f"Last chunk; negative donor prob after the value insertion, length={len(donor_prob)}")
+                            else:
+                                donor_prob = donor_prob[::-1][start_index+1:end_index+1]
+                                # donor_prob = donor_prob[::-1][start_index:end_index]
+                                # print(f"Middle chunk; negative donor prob, length={len(donor_prob)}")
+                        # print(f"{strand=}, {start_offset=}, {end_offset=}, {start_index=}, {end_index=}, {len(seq)=}, {len(acceptor_prob)=}, {len(donor_prob)=}, {x.shape=}, {y.shape=}")
 
                         ## process and write the resulting values
                         for i, x in enumerate(donor_prob):
@@ -382,45 +389,62 @@ class SpliceAiRunner(CommandLineManager):
                     dmh.write(wiggle_header)
                 ## process the results
                 ## positive strand annotation is more straightforward
+                # if strand:
+                #     start_index: int = start_offset
+                #     end_index: int = len(seq) - end_offset
+                #     acceptor_prob = acceptor_prob[start_index:end_index]
+                #     donor_prob = donor_prob[start_index:end_index]
+                # # negative strand requires some additional tweaks
+                # else:
+                #     start_index: int = end_offset
+                #     end_index: int = len(seq) - start_offset
+                #     acceptor_prob = acceptor_prob[start_index:end_index][::-1]
+                #     donor_prob = donor_prob[start_index:end_index][::-1]
+                start_index: int = start_offset
+                end_index: int = len(seq) - end_offset
                 if strand:
-                    start_index: int = start_offset
-                    end_index: int = len(seq) - end_offset
-                    # if we start at coordinate zero we can't shift a null
-                    # => choose arbitrary value 0.0
-                    # if start_index == 0:
-                    #     donor_prob = donor_prob[:end_index]
-                    #     donor_prob = np.insert(donor_prob, 0, 0.0)
-                    # else:
-                    #     donor_prob = donor_prob[start_index - 1:end_index]
-
-                    # # handle acceptors
-                    # if end_offset == 0:
-                    #     acceptor_prob = acceptor_prob[start_index + 1:]
-                    #     acceptor_prob = np.insert(acceptor_prob, len(acceptor_prob) - 1, 0.0)
-                    # else:
-                    #     acceptor_prob = acceptor_prob[start_index + 1:end_index + 1]
-                    acceptor_prob = acceptor_prob[start_index:end_index]
-                    donor_prob = donor_prob[start_index:end_index]
-                # negative strand requires some additional tweaks
-                else:
-                    start_index: int = end_offset
-                    end_index: int = len(seq) - start_offset
-                    # if we start at coordinate zero we can't shift a null
-                    # => choose arbitrary value 0.0
-                    # if start_index == 0:
-                    #     acceptor_prob = acceptor_prob[start_index:end_index + 1][::-1]
-                    #     acceptor_prob = np.insert(acceptor_prob, 0, 0.0)
-                    # else:
-                    #     acceptor_prob = acceptor_prob[start_index - 1:end_index + 1][::-1]
-
-                    # # handle donors
-                    # if end_offset == 0:
-                    #     donor_prob = donor_prob[start_index + 1:end_index + 1][::-1]
-                    #     donor_prob = np.insert(donor_prob, len(donor_prob) - 1, 0.0)
-                    # else:
-                    #     donor_prob = donor_prob[start_index + 1:end_index + 1][::-1]
-                    acceptor_prob = acceptor_prob[start_index:end_index][::-1]
-                    donor_prob = donor_prob[start_index:end_index][::-1]
+                    # start_index: int = start_offset
+                    # end_index: int = len(seq) - end_offset
+                    if start_index == 0:
+                        donor_prob = donor_prob[start_index:end_index-1]
+                        # print(f"First chunk; positive donor prob before the value insertion, length={len(donor_prob)}")
+                        donor_prob = np.insert(donor_prob, 0, 0.0)
+                        # print(f"First chunk; positive donor prob after the value insertion, length={len(donor_prob)}")
+                    else:
+                        # donor_prob = donor_prob[start_index:end_index]
+                        donor_prob = donor_prob[start_index-1:end_index-1]
+                        # print(f"Middle chunk; positive donor prob, length={len(donor_prob)}")
+                    if end_offset == 0:
+                        acceptor_prob = acceptor_prob[start_index+1:end_index]
+                        # print(f"Last chunk; positive acceptor prob before the value insertion, length={len(acceptor_prob)}")
+                        acceptor_prob = np.insert(acceptor_prob, len(acceptor_prob) - 1, 0.0)
+                        # print(f"Last chunk; positive acceptor prob after the value insertion, length={len(acceptor_prob)}")
+                    else:
+                        acceptor_prob = acceptor_prob[start_index+1:end_index+1]
+                        # print(f"Middle chunk; positive acceptor prob, length={len(acceptor_prob)}")
+                else: ## TO BE FIXED
+                    # start_index: int = end_offset
+                    # end_index: int = len(seq) - start_offset
+                    if start_index == 0:
+                        acceptor_prob = acceptor_prob[::-1][start_index:end_index-1]
+                        # print(f"First chunk; Negative acceptor prob before inserting the value, length={len(acceptor_prob)}")
+                        acceptor_prob = np.insert(acceptor_prob, 0, 0.0)
+                        # print(f"First chunk; Negative acceptor prob after inserting the value, length={len(acceptor_prob)}")
+                    else:
+                        # acceptor_prob = acceptor_prob[::-1][start_index-1:end_index+1]
+                        # acceptor_prob = acceptor_prob[::-1][start_index:end_index]
+                        acceptor_prob = acceptor_prob[::-1][start_index-1:end_index-1]
+                        # print(f"Middle chunk; negative acceptor prob, length={len(acceptor_prob)}")
+                    if end_offset == 0:
+                        donor_prob = donor_prob[::-1][start_index+1:end_index+1]
+                        # print(f"Last chunk; negative donor prob before the value insertion, length={len(donor_prob)}")
+                        donor_prob = np.insert(donor_prob, len(donor_prob) - 1, 0.0)
+                        # print(f"Last chunk; negative donor prob after the value insertion, length={len(donor_prob)}")
+                    else:
+                        donor_prob = donor_prob[::-1][start_index+1:end_index+1]
+                        # donor_prob = donor_prob[::-1][start_index:end_index]
+                        # print(f"Middle chunk; negative donor prob, length={len(donor_prob)}")
+                # print(f"{strand=}, {start_offset=}, {end_offset=}, {start_index=}, {end_index=}, {len(seq)=}, {len(acceptor_prob)=}, {len(donor_prob)=}, {x.shape=}, {y.shape=}")
 
                 ## process and write the resulting values
                 for i, x in enumerate(donor_prob):
