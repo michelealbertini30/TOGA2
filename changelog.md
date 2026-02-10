@@ -1,3 +1,33 @@
+## v2.0.7b
+* `run` mode:
+    * Replacing positional arguments with keyword arguments
+    * `--isoform_file`, `--u12_file`, and `--spliceai_dir` options are now "semi-mandatory"; the user is expected to provide the respective arguments unless the explicit deprecative flags are set
+    * Alternative input formatting with `--input_directory`, `--ref_name`, and `--query_name` shortcuts: Format your data storage tree once and enjoy simplified command line interface
+    * Postoga summary table (`toga.table.gz`) added to the output for `run` mode
+    * Projections of the same reference gene/transcript overlapping by absolute coding sequence coordinates are now collapsed into a single query gene regardless of their overlap by coding exon coordinates
+    * `--paralogs_over_spanning` flag for swapping annotation prioruty
+* `integrate` mode:
+    * Paralogs overlapping orthologous projections are now retained as long as they contain enough novel sequence compared to the rest of the projections in the locus
+* **NEW MODE**: `postoga` for [Postoga](https://github.com/alejandrogzi/postoga) integration
+* **NEW MODE**: `sequence-alignment` for orthologous sequence alignment across multiple same-referenced TOGA2 runs (alpha version)
+* Apptainer support (see `supply/containers`):
+    * Stable local execution container image
+    * Batch manager-compatible image template
+    * Removing `toga2.py` as a container entry point
+    * Adding container support for parallel step scripts (see `supply/containers/README.md`)
+* Updated local installation
+    * Postoga installation
+    * Conda environment support
+    * Updated `bigWigToWig` version (`-bed` and `-header` options) now distributed with TOGA2
+* Minor changes:
+    * `run` mode:
+        * Stepwise rejection logs are now appended to `rejected_items.tsv` instead of being dumped to separate temporary files
+    * `spliceai` mode:
+        * overlapping coordinates bug fixed
+    * `sequence-alignment` mode:
+        * error-free exit if no sequences were found across the query list for the focal transcript
+
+
 ## v2.0.7
 * `run` mode:
     * Replacing positional arguments with keyword arguments

@@ -1642,6 +1642,31 @@ administrator for available and recommended queues""",
     show_default=True,
     help="Memory limit for parallel SpliceAI jobs, in GB",
 )
+@control_flow_options.option(
+    "--resume_from",
+    "-res",
+    type=click.Choice(("all", "prepare", "schedule", "run", "aggregate"), case_sensitive=False),
+    metavar="STEP",
+    default="all",
+    show_default=True,
+    help="""If you have an unfinished run and want to resume with the same results,
+        select the step from the following list:\b
+        all: a placeholder for full starts the pipeline from the very beginning;\b\n
+        prepare: process the input data for SpliceAI annotation;\n
+        schedule: schedule parallel jobs\n
+        run: run parallel jobs for SpliceAI annotation\n
+        aggregate: aggregate the results of the parallel step\n""",
+)
+@control_flow_options.option(
+    "--halt_at",
+    "-halt",
+    type=click.Choice(("all", "prepare", "schedule", "run", "aggregate"), case_sensitive=False),
+    metavar="STEP",
+    default="all",
+    show_default=True,
+    help="""Halts the pipeline at the selected step (see above). Option "all" 
+implies running the pipeline to the last step""",
+)
 @binary_options.option(
     "--twobittofa_binary",
     type=click.Path(exists=True),
