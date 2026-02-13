@@ -218,7 +218,7 @@ class TogaMain(CommandLineManager):
         self.orthology_threshold: float = orthology_threshold
         self.se_model: os.PathLike = single_exon_model
         self.me_model: os.PathLike = multi_exon_model
-        self.use_ld_model: bool = long_distance_model
+        self.use_ld_model: bool = use_long_distance_model
         self.ld_model: os.PathLike = long_distance_model
 
         self.disable_fragment_assembly: bool = disable_fragment_assembly
