@@ -898,7 +898,7 @@ class TogaMain(CommandLineManager):
                 self._exit(
                     "Finishing pipeline before query gene inference step as suggested"
                 )
-            self._to_log("Skipping gene loss summary step as suggested")
+            self._to_log("Skipping gene inference step as suggested")
 
         ## Step 7: Summarise ortholog presence status on projection, transcript,
         ## and (if requested) gene levels
