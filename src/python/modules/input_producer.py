@@ -259,7 +259,7 @@ class InputProducer(CommandLineManager):
                 ## iterate over exon entries to infer the CDS length
                 frame_length: int = 0
                 sizes: List[int] = [int(x) for x in data[10].split(",") if x]
-                starts: List[int] = [int(x) for x in data[11] if x]
+                starts: List[int] = [int(x) for x in data[11].split(",") if x]
                 for start, size in zip(starts, sizes):
                     start += thin_start
                     end: int = start + size
