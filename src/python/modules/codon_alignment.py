@@ -37,7 +37,7 @@ EXON_GZIP_INDEX: str = ".exon_aln.fa.gz.ix"
 TWOBIT_FILE: str = "exon_seqs.2bit"
 EXTRACTION_ERROR: str = "Sequence extraction for {} from 2bit file {} failed"
 EXON_SEP_DUMMY: str = "n"
-PRANK_BEST_PRACTICE: str = "{} -d={} -F -DNA -o={}"
+PRANK_BEST_PRACTICE: str = "{} -d={} -F -DNA -o={} -seed={} "
 PRANK_FOR_REGULAR_ALN: str = " -iterate=10"
 PRANK_FOR_ANCESTRAL: str = " -once -showanc"
 MACSE_BEST_PRACTICE: str = "{} -prog alignSequences -seq {} -out_NT {} -out_AA {}"
@@ -98,6 +98,7 @@ class CodonAligner(CommandLineManager):
         "muscle_threads",
         "tree",
         "aa_file",
+        "seed",
         "show_ancestors",
         "ancestral_seq_dir",
         "aligner_exe",
@@ -153,6 +154,7 @@ class CodonAligner(CommandLineManager):
         amino_acids_output: Optional[Union[click.Path, None]],
         show_ancestors: Optional[bool],
         path_to_ancestor_files: Optional[Union[click.Path, None]],
+        seed: Optional[str],
         confidence_scores: Optional[Union[click.File, None]],
         muscle_threads: Optional[int],
         twobit2fa: Optional[Union[click.Path, None]],
@@ -184,6 +186,7 @@ class CodonAligner(CommandLineManager):
             )
         self.show_ancestors: bool = show_ancestors
         self.ancestral_seq_dir: Union[click.Path, None] = path_to_ancestor_files
+        self.seed: str = seed
         self.ref_exon_path: Union[str, None] = reference_exons
         self.ref_name: Union[str, None] = reference_name
         if self.ref_exon_path is not None and self.ref_name is None:
@@ -584,7 +587,7 @@ class CodonAligner(CommandLineManager):
                         )  ## TODO: Must be created for each exon
                     cmd: str = MACSE_BEST_PRACTICE.format(*aln_format, aa_file)
                 elif self.aligner == PRANK:
-                    cmd: str = PRANK_BEST_PRACTICE.format(*aln_format)
+                    cmd: str = PRANK_BEST_PRACTICE.format(*aln_format, self.seed)
                     if self.tree is not None:
                         cmd += f" -t={tmp_tree_path} -prunetree"
                     if self.show_ancestors:

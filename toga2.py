@@ -2081,6 +2081,14 @@ Relevant if PRANK aligner is selected""",
 Does not work with other aligners.""",
 )
 @aligner_options.option(
+    "--seed",
+    type=str,
+    metavar="SEED",
+    default="12345",
+    show_default=True,
+    help="Fixed random seed value for PRANK"
+)
+@aligner_options.option(
     "--muscle_threads",
     type=click.IntRange(min=1),
     default=1,
