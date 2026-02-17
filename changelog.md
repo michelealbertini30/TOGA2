@@ -20,15 +20,18 @@
     * Conda environment support
     * Updated `bigWigToWig` version (`-bed` and `-header` options) now distributed with TOGA2
 * Minor changes:
-    * `run` mode:
+    * `run`:
         * Stepwise rejection logs are now appended to `rejected_items.tsv` instead of being dumped to separate temporary files
-    * `spliceai` mode:
+        * default bootstrap number in `fine_ortology_resolver` set to 5000
+    * `spliceai`:
         * overlapping coordinates bug fixed
-    * `sequence-alignment` mode:
+    * `sequence-alignment`:
         * error-free exit if no sequences were found across the query list for the focal transcript
+        * fixed random seed option for PRANK
+    * `prepare-input`:
+        * trailing comma-insensitive parsing for BED fields 10 and 11
 
-
-## v2.0.7
+## v2.0.7a
 * `run` mode:
     * Replacing positional arguments with keyword arguments
     * `--isoform_file`, `--u12_file`, and `--spliceai_dir` options are now "semi-mandatory"; the user is expected to provide the respective arguments unless the explicit deprecative flags are set
