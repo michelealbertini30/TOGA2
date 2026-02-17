@@ -1054,3 +1054,19 @@ class ResultChecker(CommandLineManager):
         )
 
         return summary
+
+
+class SummaryStat:
+    """
+    A small class for generating results' summary. Supersedes summary generation with ResultChecker
+    """
+
+    __slots__ = (
+        ""
+    )
+
+    def __init__(self) -> None:
+        """Entry point"""
+
+    def summary(self) -> None:
+        """Main method"""
