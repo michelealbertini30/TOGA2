@@ -518,7 +518,7 @@ def fasta_sort_key(fasta_seq: str) -> Tuple[int, str]:
     "-rs",
     type=int,
     metavar="INT",
-    default=100,
+    default=5000,
     show_default=True,
     help="A number of bootstrap replications for RAxML run",
 )
