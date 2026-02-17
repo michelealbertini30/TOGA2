@@ -1003,6 +1003,8 @@ class TogaMain(CommandLineManager):
             ## before moving to the final steps, record the failed batches
             self._to_log("Recording failed batches if any found")
             self.write_failed_batches()
+            ## Drop the summary
+            self.get_summary()
         else:
             if self.halt_at == "finalize":
                 self.notify_on_completion("finalize")
@@ -1025,8 +1027,7 @@ class TogaMain(CommandLineManager):
             self._to_log("Skipping UCSC report preparation step as suggested")
 
         ## Step 12: Final touch
-        ## Drop the summary
-        self.get_summary()
+
 
         ## If requested, clean the temporary directory
         self._to_log("TOGA2 pipeline finished, cleaning up the temporary data")
