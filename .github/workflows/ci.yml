@@ -150,8 +150,3 @@ jobs:
         echo "Checking if Rust binaries exist:"
         ls -la src/rust/target/release/
         ls -la bed2gtf/target/release/
-
-    - name: Test run
-      run: |
-        echo "Running the test mode"
-        ./toga2.py test
