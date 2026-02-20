@@ -3,9 +3,10 @@
     * Replacing positional arguments with keyword arguments
     * `--isoform_file`, `--u12_file`, and `--spliceai_dir` options are now "semi-mandatory"; the user is expected to provide the respective arguments unless the explicit deprecative flags are set
     * Alternative input formatting with `--input_directory`, `--ref_name`, and `--query_name` shortcuts: Format your data storage tree once and enjoy simplified command line interface
+    * All eight CESAR2 profiles can be now provided as a single input directory with the `--cesar_profile_dir` argument.
     * Postoga summary table (`toga.table.gz`) added to the output for `run` mode
     * Projections of the same reference gene/transcript overlapping by absolute coding sequence coordinates are now collapsed into a single query gene regardless of their overlap by coding exon coordinates
-    * `--paralogs_over_spanning` flag for swapping annotation prioruty
+    * `--paralogs_over_spanning` flag for swapping annotation priority
 * `integrate` mode:
     * Paralogs overlapping orthologous projections are now retained as long as they contain enough novel sequence compared to the rest of the projections in the locus
 * **NEW MODE**: `postoga` for [Postoga](https://github.com/alejandrogzi/postoga) integration
