@@ -696,6 +696,10 @@ class TogaMain(CommandLineManager):
             self._to_log("Checking input directory contents")
             self.check_input_dir() 
 
+        ## check CESAR profile completeness
+        self._to_log("Checking CESAR2 profiles")
+        self.check_cesar_profiles()
+
         ## check the input arguments
         self._to_log("Checking input arguments")
         self.check_arguments()

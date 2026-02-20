@@ -876,14 +876,14 @@ class NameTemplates:
         "{}", "TOGA2", "currentAnnotation", "{}.toga.links.tsv"
     )
     CESAR_PROFILE_VALUES: Dict[str, str] = {
-        "cesar_canon_u2_acceptor": "",
-        "cesar_canon_u2_donor": "",
-        "cesar_non_canon_u2_acceptor": "",
-        "cesar_non_canon_u2_donor": "",
-        "cesar_canon_u12_acceptor": "",
-        "cesar_canon_u12_donor": "",
-        "cesar_non_canon_u12_acceptor": "",
-        "cesar_non_canon_u12_donor": "",
+        "cesar_canon_u2_acceptor": "canon_U2_acceptor.tsv",
+        "cesar_canon_u2_donor": "canon_U2_donor.tsv",
+        "cesar_non_canon_u2_acceptor": "nonCanon_U2_acceptor.tsv",
+        "cesar_non_canon_u2_donor": "nonCanon_U2_donor.tsv",
+        "cesar_canon_u12_acceptor": "canon_U12_acceptor.tsv",
+        "cesar_canon_u12_donor": "canon_U12_donor.tsv",
+        "cesar_non_canon_u12_acceptor": "nonCanon_U12_acceptor.tsv",
+        "cesar_non_canon_u12_donor": "nonCanon_U12_donor.tsv",
     }
 
 
