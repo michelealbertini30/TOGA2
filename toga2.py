@@ -656,11 +656,36 @@ requires memory beyond this limit will be discarded before the alignment step.
 Value of 0 denotes unlimited memory""",
 )
 @cesar_options.option(
+    "--cesar_profile_dir",
+    "-prof",
+    type=click.Path(exists=True),
+    metavar="PATH",
+    default=(),
+    show_default=True,
+    help="""A path to a single directory containing the full set of CESAR2 profiles.
+The following files are expected:\n
+\tcanon_U2_donor.tsv - for canonical (GT/GC-AG) U2 donors;\n
+\tcanon_U2_acceptor.tsv - for canonical (GT/GC-AG) U2 acceptors;\n
+\tnonCanon_U2_donor.tsv - for non-canonical U2 donors;\n
+\tnonCanon_U2_acceptor.tsv - for non-canonical U2 acceptors;\n
+\tcanon_U12_donor.tsv - for canonical (GT-AG) U12 donors;\n
+\tcanon_U12_acceptor.tsv - for canonical (GT-AG) U12 acceptors'\n
+\tnonCanon_U12_donor.tsv - for non-canonical U12 donors;\n
+\tnonCanon_U12_acceptor.tsv - for non-canonical U12 acceptors\n
+Uniform profiles, equiprobable_donor.tsv and equiprobable_acceptor.tsv, generated 
+in the `prepare-input` mode, are not expected by default but are highly recommended 
+to keep.\n
+NOTE: the individual CESAR2 profile arguments above override the expected profiles in the CESAR2 
+profile directory. You can also provide an incomplete profile directory and specify the missing 
+profiles with the respective arguments, but TOGA2 missing any of the eight profile files will 
+result in an error."""
+)
+@cesar_options.option(
     "--cesar_canon_u2_acceptor",
     "-cca",
     type=click.Path(exists=True),
     metavar="PATH",
-    default=HG38_CANON_U2_ACCEPTOR,
+    default=None,#HG38_CANON_U2_ACCEPTOR,
     show_default=True,
     help="A path to canonical (GT/GC-AG) U2 acceptor profile",
 )
@@ -669,7 +694,7 @@ Value of 0 denotes unlimited memory""",
     "-ccd",
     type=click.Path(exists=True),
     metavar="PATH",
-    default=HG38_CANON_U2_DONOR,
+    default=None,#HG38_CANON_U2_DONOR,
     show_default=True,
     help="A path to canonical (GT/GC-AG) U2 donor profile",
 )
@@ -678,7 +703,7 @@ Value of 0 denotes unlimited memory""",
     "-cnca",
     type=click.Path(exists=True),
     metavar="PATH",
-    default=HG38_NON_CANON_U2_ACCEPTOR,
+    default=None,#HG38_NON_CANON_U2_ACCEPTOR,
     show_default=True,
     help="A path to non-canonical (non GT/GC-AG) U2 acceptor profile",
 )
@@ -687,7 +712,7 @@ Value of 0 denotes unlimited memory""",
     "-cncd",
     type=click.Path(exists=True),
     metavar="PATH",
-    default=HG38_NON_CANON_U2_DONOR,
+    default=None,#HG38_NON_CANON_U2_DONOR,
     show_default=True,
     help="A path to non-canonical (non GT/GC-AG) U2 donor profile",
 )
@@ -696,7 +721,7 @@ Value of 0 denotes unlimited memory""",
     "-cua",
     type=click.Path(exists=True),
     metavar="PATH",
-    default=HG38_CANON_U12_ACCEPTOR,
+    default=None,#HG38_CANON_U12_ACCEPTOR,
     show_default=True,
     help="A path to canonical (GT-AG) U12 exon acceptor profile",
 )
@@ -705,7 +730,7 @@ Value of 0 denotes unlimited memory""",
     "-cud",
     type=click.Path(exists=True),
     metavar="PATH",
-    default=HG38_CANON_U12_DONOR,
+    default=None,#HG38_CANON_U12_DONOR,
     show_default=True,
     help="A path to canonical (GT-AG) U12  donor profile",
 )
@@ -714,7 +739,7 @@ Value of 0 denotes unlimited memory""",
     "-cnua",
     type=click.Path(exists=True),
     metavar="PATH",
-    default=EQUIPROBABLE_ACCEPTOR,
+    default=None,#EQUIPROBABLE_ACCEPTOR,
     show_default=True,
     help="A path to non-canonical (non-GT-AG) U12 exon acceptor profile",
 )
@@ -723,7 +748,7 @@ Value of 0 denotes unlimited memory""",
     "-cnud",
     type=click.Path(exists=True),
     metavar="PATH",
-    default=HG38_NON_CANON_U12_DONOR,
+    default=None,#HG38_NON_CANON_U12_DONOR,
     show_default=True,
     help="A path to non-canonical (non-GT-AG) U12 exon donor profile",
 )

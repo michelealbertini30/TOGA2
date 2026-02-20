@@ -875,6 +875,16 @@ class NameTemplates:
     REF_LINKS: str = os.path.join(
         "{}", "TOGA2", "currentAnnotation", "{}.toga.links.tsv"
     )
+    CESAR_PROFILE_VALUES: Dict[str, str] = {
+        "cesar_canon_u2_acceptor": "",
+        "cesar_canon_u2_donor": "",
+        "cesar_non_canon_u2_acceptor": "",
+        "cesar_non_canon_u2_donor": "",
+        "cesar_canon_u12_acceptor": "",
+        "cesar_canon_u12_donor": "",
+        "cesar_non_canon_u12_acceptor": "",
+        "cesar_non_canon_u12_donor": "",
+    }
 
 
 # Standalone constants #
@@ -1082,6 +1092,7 @@ TOGA2_SLOTS: Tuple[str, ...] = (
     "leave_missing_stop",
     "consider_alt_frame",
     "spliceai_correction_mode",
+    "cesar_profile_dir",
     "cesar_canon_u2_acceptor",
     "cesar_canon_u2_donor",
     "cesar_non_canon_u2_acceptor",
@@ -1324,6 +1335,7 @@ TOGA2_SLOT2ARG: Dict[str, str] = {
     "minimal_covered_fraction": "minimal_covered_fraction",
     "exon_locus_flank": "exon_locus_flank",
     "assembly_gap_size": "assembly_gap_size",
+    "cesar_profile_dir": "cesar_profile_dir",
     "cesar_canon_u2_acceptor": "cesar_canon_u2_acceptor",
     "cesar_canon_u2_donor": "cesar_canon_u2_donor",
     "cesar_non_canon_u2_acceptor": "cesar_non_canon_u2_acceptor",

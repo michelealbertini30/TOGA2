@@ -59,20 +59,15 @@ DEFAULT_ARGS: Dict[str, Union[str, int, float, bool, None]] = {
     "minimal_covered_fraction": 0.0,
     "exon_locus_flank": 100,
     "assembly_gap_size": 10,
-    "cesar_canon_u2_acceptor": os.path.join(HUMAN_PROFILES, "canon_U2_acceptor.tsv"),
-    "cesar_canon_u2_donor": os.path.join(HUMAN_PROFILES, "canon_U2_donor.tsv"),
-    "cesar_non_canon_u2_acceptor": os.path.join(
-        HUMAN_PROFILES, "nonCanon_U2_acceptor.tsv"
-    ),
-    "cesar_non_canon_u2_donor": os.path.join(HUMAN_PROFILES, "nonCanon_U2_donor.tsv"),
-    "cesar_canon_u12_acceptor": os.path.join(HUMAN_PROFILES, "canon_U12_acceptor.tsv"),
-    "cesar_canon_u12_donor": os.path.join(HUMAN_PROFILES, "canon_U12_donor.tsv"),
-    "cesar_non_canon_u12_acceptor": os.path.join(
-        HUMAN_PROFILES, "equiprobable_acceptor.tsv"
-    ),
-    "cesar_non_canon_u12_donor": os.path.join(
-        HUMAN_PROFILES, "non_canon_U12_donor.tsv"
-    ),
+    "cesar_profile_dir": HUMAN_PROFILES,
+    "cesar_canon_u2_acceptor": None,#os.path.join(HUMAN_PROFILES, "canon_U2_acceptor.tsv"),
+    "cesar_canon_u2_donor": None,#os.path.join(HUMAN_PROFILES, "canon_U2_donor.tsv"),
+    "cesar_non_canon_u2_acceptor": None,#os.path.join(HUMAN_PROFILES, "nonCanon_U2_acceptor.tsv"),
+    "cesar_non_canon_u2_donor": None,#os.path.join(HUMAN_PROFILES, "nonCanon_U2_donor.tsv"),
+    "cesar_canon_u12_acceptor": None,#os.path.join(HUMAN_PROFILES, "canon_U12_acceptor.tsv"),
+    "cesar_canon_u12_donor": None,#os.path.join(HUMAN_PROFILES, "canon_U12_donor.tsv"),
+    "cesar_non_canon_u12_acceptor": None,#os.path.join(HUMAN_PROFILES, "equiprobable_acceptor.tsv"),
+    "cesar_non_canon_u12_donor": None,#os.path.join(HUMAN_PROFILES, "non_canon_U12_donor.tsv"),
     "cesar_first_acceptor": os.path.join(PROFILES, "firstCodon_profile.tsv"),
     "cesar_last_donor": os.path.join(PROFILES, "lastCodon_profile.tsv"),
     "joint_splice_site_treatment": False,

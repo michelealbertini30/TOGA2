@@ -105,6 +105,7 @@ class TogaMain(CommandLineManager):
         job_nums_per_bin: Optional[str],
         allow_heavy_jobs: Optional[bool],
         cesar_memory_limit: Optional[int],
+        cesar_profile_dir: Optional[os.PathLike],
         cesar_canon_u2_acceptor: Optional[os.PathLike],
         cesar_canon_u2_donor: Optional[os.PathLike],
         cesar_non_canon_u2_acceptor: Optional[os.PathLike],
@@ -231,6 +232,7 @@ class TogaMain(CommandLineManager):
         self.preprocessing_job_num: int = preprocessing_jobs
         self.max_chains_per_transcript: int = max_chains_per_transcript
         self.cesar_memory_limit: float = cesar_memory_limit
+        self.cesar_profile_dir: Union[os.PathLike, None] = cesar_profile_dir
         self.max_search_space_size: int = max_search_space_size
         self.extrapolation_modifier: float = extrapolation_modifier
         self.minimal_covered_fraction: float = (
@@ -1718,6 +1720,38 @@ class TogaMain(CommandLineManager):
             else:
                 self.ref_link_file = links
 
+    def check_cesar_profiles(self) -> None:
+        """
+        Checks the CESAR2 profile directory content; if any profiles 
+        are overriden with the command line arguments, replaces the 
+        the corresponding
+        """
+        for cesar_attr_name, default_value in NameTemplates.CESAR_PROFILE_VALUES.items():
+            curr_value: Union[str, None] = getattr(self, cesar_attr_name)
+            ## value was provided via command line; 
+            ## explicitly arguments get preference -> proceed further
+            if curr_value is not None:
+                continue
+            ## no value provided explicitly; check the CESAR2 profile directory
+            ## if no directory was provided (likely will never happen due to default settings in toga2.py), 
+            ## there is no value for the profile -> error-exit
+            if self.cesar_profile_dir is None:
+                self._die(
+                    (
+                        "Missing value for the \"%s\" attribute, with no CESAR2 profile directory "
+                        "provided. Either set the argument explicitly or "
+                    ) % cesar_attr_name
+                )
+            expected_path: str = os.path.join(self.cesar_profile_dir, default_value)
+            if not os.path.exists(expected_path):
+                self._die(
+                    (
+                        "Missing value for the \"%s\" attribute, with the expected defailt missing "
+                        "from the profile directory %s. Please check the contents of the profile "
+                        "directory or provide the respective profile explicitly via command line"
+                    ) % (cesar_attr_name, self.cesar_profile_dir)
+                )
+            self.__setattr__(cesar_attr_name, expected_path)
 
     def check_spliceai_files(self) -> None:
         """
