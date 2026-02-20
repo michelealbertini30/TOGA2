@@ -142,7 +142,7 @@ jobs:
         ./toga2.py -h
     
     - name: Test run
-      run:
+      run: |
         source toga2/bin/activate 
         ./toga2.py test
         rm -rf sample_output
