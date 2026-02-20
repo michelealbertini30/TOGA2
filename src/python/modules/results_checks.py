@@ -1062,7 +1062,7 @@ class SummaryStat:
     """
 
     __slots__ = (
-        ""
+        "orth_probs",
     )
 
     def __init__(self) -> None:
