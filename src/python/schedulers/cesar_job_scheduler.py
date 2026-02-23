@@ -30,10 +30,10 @@ from modules.shared import (
     CONTEXT_SETTINGS, 
     SPLIT_JOB_HEADER,
     CommandLineManager, 
+    get_connected_components,
     get_upper_dir, 
     intersection, 
 )
-from shared import get_connected_components
 
 __author__ = "Yury V. Malovichko"
 __credits__ = ["Bogdan Kirilenko", "Michael Hiller"]
