@@ -2378,8 +2378,8 @@ def test(output: Optional[click.Path]) -> None:
 
     DEFAULT_ARGS["output"] = output
     DEFAULT_ARGS["no_spliceai"] = True
-    DEFAULT_ARGS["no_u12_file"]
-    DEFAULT_ARGS["no_isoform_file"] = True
+    # DEFAULT_ARGS["no_u12_file"]
+    # DEFAULT_ARGS["no_isoform_file"] = True
     TogaMain(**DEFAULT_ARGS)
 
 
