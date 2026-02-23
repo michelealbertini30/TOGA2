@@ -1388,6 +1388,7 @@ class TogaMain(CommandLineManager):
         """
         from .constants import Headers
         if not os.path.exists(self.final_rejection_log):
+            self._create_output_stub("final_rejection_log")
             return
         self._to_log("Filtering the rejection log from the previous TOGA2 run")
         step_priority: int = Constants.RESUME_ORDER[self.resume_from]
@@ -1456,6 +1457,7 @@ class TogaMain(CommandLineManager):
         else:
             self._mkdir(self.output)
             self._mkdir(self.logs)
+            self._create_output_stub("final_rejection_log")
             self.set_logging()
 
         ## create the first-level directories
