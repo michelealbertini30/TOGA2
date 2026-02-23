@@ -143,8 +143,8 @@ jobs:
     
     - name: Test run
       run: |
-        source toga2/bin/activate 
-        ./toga2.py test
+        source toga2/bin/activate && \
+        ./toga2.py test && \
         rm -rf sample_output
 
     - name: Verify build artifacts
