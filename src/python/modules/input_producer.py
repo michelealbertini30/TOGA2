@@ -52,6 +52,7 @@ DEFAULT_TWOBITTOFA: str = os.path.join(TOGA2_ROOT, "bin", "twoBitToFa")
 DEFAULT_BED2FRACTION: str = os.path.join(
     TOGA2_ROOT, "src", "rust", "target", "release", "bed12ToFraction"
 )
+DEFAULT_INTRONIC: str = os.path.join(TOGA2_ROOT, "bin", "intronIC", "intronIC", "intronIC.py")
 PROFILE_DIR: str = "CESAR2.0_profiles"
 EQUI_ACC: str = "equiprobable_acceptor.tsv"
 EQUI_DONOR: str = "equiprobable_donor.tsv"
@@ -453,7 +454,7 @@ class InputProducer(CommandLineManager):
                 self._to_log(
                     (
                         "intronIC binary at %s does not seem executable; "
-                        "looking for alternatives in $PATH"
+                        "looking for alternatives"
                     )
                     % binary,
                     "warning",
@@ -462,8 +463,28 @@ class InputProducer(CommandLineManager):
             self._to_log(
                 (
                     "No intronIC executable was provided; "
-                    "looking for alternatives in $PATH"
+                    "looking for alternatives"
                 )
+            )
+        ## check for the default version in bin/
+        if os.path.exists(DEFAULT_INTRONIC):
+            self._to_log(
+                "Found intronIC instance at %s; checking the execution permissions"
+                % DEFAULT_INTRONIC
+            )
+            if os.access(DEFAULT_INTRONIC, os.X_OK):
+                self._to_log(
+                    "The found binary is executable; using the TOGA2-supplied intronIC instance"
+                )
+                return DEFAULT_INTRONIC
+            self._to_log(
+                "TOGA2-supplied intronIC at %s is not executable; looking for alternatives in $PATH"
+                % DEFAULT_INTRONIC
+            )
+        else:
+            self._to_log(
+                "intronIC is missing at %s; looking for alternatives in $PATH" 
+                % DEFAULT_INTRONIC
             )
         intronic_in_path: Union[str, None] = which("intronIC")
         if intronic_in_path is not None:
@@ -532,6 +553,7 @@ class InputProducer(CommandLineManager):
             f"-p {self.ic_cores}  --min_intron_len {self.min_intron_length_intronic} "
             "--no_nc_ss_adjustment --no_abbreviate"
         )
+        print(f"{intronic_cmd=}")
         _ = self._exec(intronic_cmd, "intronIC run failed:")
         ## now, prepare the final file
         ## parse the output bed file
