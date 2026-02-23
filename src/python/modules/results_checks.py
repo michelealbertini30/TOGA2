@@ -86,6 +86,7 @@ Orthology prediction statistics:
 \t\t#reference genes with 1 predicted ortholog: {} ({}%)
 \t\t#reference genes with no predicted orthologs: {} ({}%)
 """
+## TODO: Consider adding IGNORED_STATUSES to the summary to exclude ambiguity in the results' interpretation
 LOSS_SUMMARY_BOILERPLATE: str = """
 Gene loss summary statistics:
 \tloss classes considered for assessing gene presence: {}
@@ -1062,11 +1063,111 @@ class SummaryStat:
     """
 
     __slots__ = (
+        "ref_transcript_file",
+        "ref_transcripts",
+        "orth_prob_threshold",
+        "loss_summary",
+        "ref_isoform_file",
+        "ref_tr2gene",
+        "orth_probs_file",
         "orth_probs",
+        "",
     )
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        ref_transcript_file: os.PathLike,
+        orth_prob_threshold: float,
+        orth_probs_file: os.PathLike,
+        loss_summary: os.PathLike,
+        query_genes: os.PathLike,
+        ref_isoform_file: Union[os.PathLike, None] = None,
+    ) -> None:
         """Entry point"""
+        self.ref_transcript_file: os.PathLike = ref_transcript_file
+        self.orth_prob_threshold: float = orth_prob_threshold
+        self.loss_summary: os.PathLike = loss_summary
+        self.query_genes: os.PathLike =query_genes
+        self.orth_probs_file: os.PathLike = orth_probs_file
+        self.ref_isoform_file: Union[os.PathLike, None] = ref_isoform_file
 
     def summary(self) -> None:
         """Main method"""
+        ## parse the input data
+        self.ref_transcripts: Set[str] = set()
+        self.ref_tr2gene: Dict[str, str] = set()
+        with open(self.ref_transcript_file, "r") as h:
+            for line in h:
+                data: List[str] = line.strip().split("\t")
+                if not data or not data[0]:
+                    continue
+                tr: str = data[3]
+                self.ref_transcripts.add(tr)
+        if self.ref_isoform_file is not None:
+            with open(self.ref_isoform_file, "r") as h:
+                for line in h:
+                    data: List[str] = line.strip().split("\t")
+                    if not data or not data[0]:
+                        continue
+                    tr: str = data[1]
+                    if tr not in self.ref_transcripts: ## TODO: Track in a separate collection??
+                        continue
+                    gene: str = data[0]
+                    self.ref_tr2gene[tr] = gene
+        ## summarize the orthology classification step
+        tr2chain2prob: Dict[str] = defaultdict(dict)
+        with open(self.orth_probs_file, "r") as h:
+            for line in h:
+                data: List[str] = line.strip().split("\t")
+                if not data or not data[0]:
+                    continue
+                tr: str = data[0]
+                chain: str = data[1]
+                prob: float = float(data[2])
+                tr2chain2prob[tr][chain] = prob
+        num_orth_tr: int = sum(
+            any(tr2chain2prob[x][y] >= self.orth_prob_threshold )
+            for x in tr2chain2prob 
+            for y in tr2chain2prob[x]
+        )
+        num_zero_orth: int = len(tr2chain2prob) - num_orth_tr
+        num_one2one_prob: int = sum(
+            sum(tr2chain2prob[x][y] >= self.orth_prob_threshold) == 1
+            for x in tr2chain2prob 
+            for y in tr2chain2prob[x]
+        )
+        num_no_proj: int = len(self.ref_transcripts) - len(tr2chain2prob)
+        num_ppgene_pred: int = sum(
+            sum(tr2chain2prob[x][y] == -2.0) 
+            for x in tr2chain2prob 
+            for y in tr2chain2prob[x]
+        )
+        ## fetch loss statistics
+        proj2loss: Dict[str, str] = {}
+        tr2loss: Dict[str, str] = {}
+        gene2loss: Dict[str, str] = {}
+        with open(self.loss_summary, "r") as h:
+            for line in h:
+                data: List[str] = line.strip().split("\t")
+                if not data or not data[0]:
+                    continue
+                if data[0] == PROJECTION:
+                    proj2loss[data[1]] = data[2]
+                    continue
+                if data[0] == TRANSCRIPT:
+                    tr2loss[data[1]] = data[2]
+                    continue
+                if data[0] == GENE:
+                    gene2loss[data[1]] = data[2]
+                    continue
+        ## gene & orthology statistics
+        query_genes: Set[str] = set()
+        with open(self.query_genes, "r") as h:
+            for line in h:
+                data: List[str] = line.strip().split("\t")
+                if not data or not data[0]:
+                    continue
+                if data[0] == QUERY_ISOFORMS_HEADER:
+                    continue
+                pass
+
