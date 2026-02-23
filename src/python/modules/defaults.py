@@ -22,10 +22,14 @@ DEFAULT_ARGS: Dict[str, Union[str, int, float, bool, None]] = {
     "ref_annotation": os.path.join(
         TEST_INPUT, "hg38", "TOGA2", "currentAnnotation", "hg38.toga.transcripts.bed"
     ),
-    "isoform_file": None,
+    "isoform_file": os.path.join(
+        TEST_INPUT, "hg38", "TOGA2", "currentAnnotation", "hg38.toga.isoforms.tsv"
+    ),
     "no_isoform_file": False,
     "u12_file": None,
-    "no_u12_file": False,
+    "no_u12_file": os.path.join(
+        TEST_INPUT, "hg38", "TOGA2", "currentAnnotation", "hg38.toga.U12introns.tsv"
+    ),
     "spliceai_dir": None,
     "no_spliceai": False,
     "input_directory": None,
@@ -95,7 +99,7 @@ DEFAULT_ARGS: Dict[str, Union[str, int, float, bool, None]] = {
     "max_clique_size": 50,
     "orthology_jobs": 100,
     "prank_binary": None,
-    "tree_binary": None,
+    "tree_binary": os.path.join(BIN, "iqtree2"),
     "tree_cpus": 1,
     "utr_abs_threshold": 3000,
     "utr_rel_threshold": 2.5,
