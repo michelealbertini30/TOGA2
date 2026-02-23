@@ -1071,7 +1071,6 @@ class SummaryStat:
         "ref_tr2gene",
         "orth_probs_file",
         "orth_probs",
-        "",
     )
 
     def __init__(
