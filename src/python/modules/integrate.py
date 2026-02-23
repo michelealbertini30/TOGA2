@@ -697,19 +697,22 @@ class AnnotationIntegrator(CommandLineManager):
                         if status < best_status:
                             if v:
                                 print(f"{name} does not pass the loss filter; skipping\n{bar}")
-                            elif status > best_status:
-                                if v:
-                                    print(f"{name} is the best item encountered so far; wiping out the previous records")
-                                ## not the allowed class but already better 
-                                ## than what has been already encountered; clear the selected lists 
-                                selected.clear()
-                                name2lines_selected.clear()
-                            continue
+                                prev_is_better = True
+                                ## skip this item and proceed further
+                                continue
+                        elif status > best_status:
+                            if v:
+                                print(f"{name} is the best item encountered so far; wiping out the previous records")
+                            ## not the allowed class but already better 
+                            ## than what has been already encountered; clear the selected lists 
+                            selected.clear()
+                            name2lines_selected.clear()
+                            # continue
                     ## at this point, this is a likely candidate
                     ## however, chances are an item in exactly the same coordinates
                     ## has been already found
+                    prev_is_better: bool = False
                     if any(x in selected for x in proj.lines):
-                        prev_is_better: bool = False
                         for line in proj.lines:
                             if line not in selected:
                                 continue
@@ -740,8 +743,11 @@ class AnnotationIntegrator(CommandLineManager):
                                     for prev_line in name2lines_selected[prev_name]:
                                         del selected[prev_line]
                         if prev_is_better:
-                            continue
-                        ## otherwise, the new prediction is the winner
+                            break
+                    ## the existing item is better; proceed further
+                    if prev_is_better:
+                        continue
+                    ## otherwise, the new prediction is the winner
                     best_status = max(best_status, status)
                     for line in proj.lines:
                         selected[line] = name
