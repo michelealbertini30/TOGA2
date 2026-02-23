@@ -656,6 +656,10 @@ class AnnotationIntegrator(CommandLineManager):
             open(self.projection_bed, "w") as qb,
         ):
             for component in components:
+                v = any("NM_001330334.2#EED#9846" in x for x in component)
+                bar = "=" * 50
+                if v:
+                    print(f"The lost/missing EED9846 clade found: {list(component.nodes)}\n{bar}")
                 ## initialize a temporary storage for initial candidates
                 selected: Dict[str, str] = {}
                 name2lines_selected: Dict[str, List[str]] = defaultdict(list)
@@ -667,9 +671,9 @@ class AnnotationIntegrator(CommandLineManager):
                 ## keep track of the paralogs present in this clique
                 paralogs: Set[str] = set()
                 for name in component:
-                    if "NM_001080213#F7#314" in name:
-                        print(f"HLbosTau10.NM_001080213#F7#314 found; {list(component.nodes)=}")
                     is_paralog: bool = base_proj_name(name) in self.paralog_pool
+                    if v:
+                        print(f"Current name: {name}, is a paralog: {is_paralog}")
                     ## paralogs are to be handled later
                     if is_paralog:
                         paralogs.add(name)
@@ -677,8 +681,12 @@ class AnnotationIntegrator(CommandLineManager):
                     proj: BedRecord = self.query_projections[name]
                     status: int = CLASS_TO_NUM[proj.loss_status]
                     allowed_status: bool = proj.loss_status in self.accepted_statuses
+                    if v:
+                        print(f"Loss status: {proj.loss_status}, is allowed: {allowed_status}")
                     if allowed_status:  ## let this projection in
                         if not allowed_class_found:
+                            if v:
+                                print(f"{name} is the first allowed status representative; wiping out the previous records")
                             ## this is the first representative of the allowed loss classes;
                             ## wipe out the previous instances
                             selected.clear()
@@ -687,6 +695,15 @@ class AnnotationIntegrator(CommandLineManager):
                     else:
                         ## do not let the items worse than the current best
                         if status < best_status:
+                            if v:
+                                print(f"{name} does not pass the loss filter; skipping\n{bar}")
+                            elif status > best_status:
+                                if v:
+                                    print(f"{name} is the best item encountered so far; wiping out the previous records")
+                                ## not the allowed class but already better 
+                                ## than what has been already encountered; clear the selected lists 
+                                selected.clear()
+                                name2lines_selected.clear()
                             continue
                     ## at this point, this is a likely candidate
                     ## however, chances are an item in exactly the same coordinates
@@ -700,8 +717,13 @@ class AnnotationIntegrator(CommandLineManager):
                             prev_proj: BedRecord = self.query_projections[prev_name]
                             prev_status: int = CLASS_TO_NUM[prev_proj.loss_status]
                             ## pick the one with the best loss status
+                            if v:
+                                print(f"{name=}, {prev_name=}, {proj.loss_status=}, {prev_proj.loss_status=}")
                             if prev_status > status:
-                                continue
+                                if v:
+                                    print(f"{name} has been discarded in favour of {prev_name} due to loss status; skipping\n{bar}")
+                                prev_is_better = True
+                                break
                             ## if it is a tie, go for the more preferred reference
                             elif prev_status == status:
                                 species: str = self.query_proj2ref[name]
@@ -711,6 +733,8 @@ class AnnotationIntegrator(CommandLineManager):
                                 ## if the previous prediction's priority is higher (lower) or equal, keep it
                                 if prev_priority <= priority:
                                     prev_is_better = True
+                                    if v:
+                                        print(f"{name} has been discarded in favour of {prev_name} due to species precedence; skipping\n{bar}")
                                     break
                                 else:
                                     for prev_line in name2lines_selected[prev_name]:
@@ -722,8 +746,12 @@ class AnnotationIntegrator(CommandLineManager):
                     for line in proj.lines:
                         selected[line] = name
                     name2lines_selected[name] = proj.lines
+                    if v:
+                        print(f"Letting {name} in (currently)\n{bar}")
                 ## now, process the paralogs
                 ## first, retrieve all the exon records
+                if v:
+                    print(f"Current candidate set before adding the paralogs: {list(selected.values())}")
                 valid_exons: Dict[str, List[ExonRecord]] = defaultdict(list)
                 for proj_name in selected.values():
                     proj: BedRecord = self.query_projections[proj_name]
@@ -774,6 +802,9 @@ class AnnotationIntegrator(CommandLineManager):
                     x for x in filtered_component.nodes() if x not in selected.values()
                 }
                 filtered_component.remove_nodes_from(nodes_to_remove)
+                if v:
+                    print(f"Current candidates after paralogs: {list(filtered_component.nodes)}")
+                    print(f"Filtered items: {nodes_to_remove}")
                 if NX_VERSION < 2.4:
                     minor_components = list(nx.connected_component_subgraphs(filtered_component))
                 else:
@@ -784,6 +815,8 @@ class AnnotationIntegrator(CommandLineManager):
                     # all_projs: List[BedRecord] = [
                     #     self.query_projections[x] for x in selected.values()
                     # ]
+                    if v:
+                        print(f"New subcomponent: {list(minor_component.nodes)}")
                     all_projs: List[BedRecord] = [
                         self.query_projections[x] for x in minor_component.nodes()
                     ]
