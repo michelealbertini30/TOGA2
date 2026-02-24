@@ -2443,7 +2443,7 @@ class TogaMain(CommandLineManager):
                 self.failed_alignment_batches.append(dir_name)
                 if dir_name == "batch0":
                     quq = os.path.join(dir_path, "log.txt")
-                    self._exec(f"tail -n30 {quq}", "MUST NOT FAIL!!")
+                    print(self._exec(f"tail -n30 {quq}", "MUST NOT FAIL!!"))
             for out_file in Constants.CESAR_OUT_FILES:
                 batch_path: str = os.path.join(dir_path, out_file)
                 out_file_slot: str = Constants.CESAR_FILE_TO_DEST[out_file]
