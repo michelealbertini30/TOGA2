@@ -147,6 +147,8 @@ jobs:
     - name: Test run
       run: |
         source toga2/bin/activate && \
+        pwd && \
+        cat /home/runner/work/TOGA2/TOGA2/supply/CESAR2.0/profiles/human/canon_U2_donor.tsv && \
         ./toga2.py test && \
         rm -rf sample_output
 
