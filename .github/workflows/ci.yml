@@ -25,6 +25,9 @@ jobs:
       uses: actions/setup-python@v4
       with:
         python-version: ${{ matrix.python-version }}
+
+    - name: Install Nextflow
+      uses: nf-core/setup-nextflow@v1
     
     - name: Install system dependencies
       run: |
@@ -66,9 +69,6 @@ jobs:
         key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
         restore-keys: |
           ${{ runner.os }}-pip-
-
-    - name: Install Nextflow
-      uses: nf-core/setup-nextflow@v1
     
     - name: Set executable permissions
       run: |
@@ -150,6 +150,7 @@ jobs:
         source toga2/bin/activate && \
         pwd && \
         cat /home/runner/work/TOGA2/TOGA2/supply/CESAR2.0/profiles/human/canon_U2_donor.tsv && \
+        ./CESAR2.0/cesar -h \
         ./toga2.py test && \
         rm -rf sample_output
 
