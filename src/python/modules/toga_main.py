@@ -2444,6 +2444,8 @@ class TogaMain(CommandLineManager):
                 if dir_name == "batch0":
                     quq = os.path.join(dir_path, "log.txt")
                     print(self._exec(f"tail -n30 {quq}", "MUST NOT FAIL!!"))
+                    puq = os.path.join(self.nextflow_dir, "cesar_align_TOGA2_3", "cesar_align_TOGA2_3.log")
+                    print(self._exec(f"tail -n150 {puq}", "MUST NOT FAIL EITHER!!"))
             for out_file in Constants.CESAR_OUT_FILES:
                 batch_path: str = os.path.join(dir_path, out_file)
                 out_file_slot: str = Constants.CESAR_FILE_TO_DEST[out_file]
