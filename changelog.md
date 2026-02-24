@@ -24,6 +24,7 @@
     * `run`:
         * Stepwise rejection logs are now appended to `rejected_items.tsv` instead of being dumped to separate temporary files
         * default bootstrap number in `fine_ortology_resolver` set to 5000
+        * resolving faulty imports from `shared.py` in scheduler scripts
     * `spliceai`:
         * overlapping coordinates bug fixed
     * `sequence-alignment`:
