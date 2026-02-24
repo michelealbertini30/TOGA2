@@ -870,11 +870,11 @@ class CesarExecutor(CommandLineManager):
                 if group.contains_last_exon and not self.toga1:
                     cesar_cmd += " -l"
 
+                self._to_log(f"{cesar_input=}")
                 ## run CESAR
                 self._to_log(
                     f"Aligning exon group {g} for projection {self.projection_name}"
                 )
-                print(cesar_input)
                 import subprocess
                 subprocess.run(cesar_cmd, shell=True)
                 cesar_out: str = self._exec(cesar_cmd, self.cesar_err, cesar_input)
