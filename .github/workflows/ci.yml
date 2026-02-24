@@ -65,6 +65,9 @@ jobs:
         key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
         restore-keys: |
           ${{ runner.os }}-pip-
+
+    - name: Install Nextflow
+      uses: nf-core/setup-nextflow@v1
     
     - name: Set executable permissions
       run: |
