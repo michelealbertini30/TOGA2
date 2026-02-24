@@ -126,7 +126,7 @@ jobs:
     
     - name: Build CESAR2.0
       run: |
-        make build_cesar
+        gcc --version && make build_cesar
     
     - name: Train models in toga2 venv
       run: |
@@ -150,6 +150,7 @@ jobs:
         source toga2/bin/activate && \
         pwd && \
         cat /home/runner/work/TOGA2/TOGA2/supply/CESAR2.0/profiles/human/canon_U2_donor.tsv && \
+        gcc --version && \
         ./CESAR2.0/cesar -h \
         ./toga2.py test && \
         rm -rf sample_output
