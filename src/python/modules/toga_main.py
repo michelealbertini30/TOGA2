@@ -2451,6 +2451,9 @@ class TogaMain(CommandLineManager):
                     peq = os.path.join(self.nextflow_dir, ".nextflow.log")
                     print("PRINTING NEXTFLOW LOG")
                     print(self._exec(f"tail -n150 {peq}", "THIS ALSO SHOULD NOT"))
+                    print("MANUAL CESAR CONTROL!!!!")
+                    kek = os.path.join(self.tmp, "cesar_alignment_jobs", "batch0.ex")
+                    print(self._exec(f"grep cesar_exec {kek} | xargs -I{{}} /bin/bash {{}} -v", "CESAR WILL FALL!!"))
             for out_file in Constants.CESAR_OUT_FILES:
                 batch_path: str = os.path.join(dir_path, out_file)
                 out_file_slot: str = Constants.CESAR_FILE_TO_DEST[out_file]
