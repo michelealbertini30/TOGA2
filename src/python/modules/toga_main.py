@@ -174,7 +174,7 @@ class TogaMain(CommandLineManager):
     ) -> None:
         self.v: bool = verbose
         self.project_name: str = project_name
-        self.project_id: str = hex_dir_name(self.project_name)
+        self.project_id: str = project_name#hex_dir_name(self.project_name)
 
         ## command line-configured attributes
         self.ref_2bit: os.PathLike = self._abspath(ref_2bit)
