@@ -295,6 +295,11 @@ def dir_name_by_date(prefix: str) -> str:
     return f"{prefix}_{datetime.now().strftime('%H:%M_%d.%m.%y')}"
 
 
+def timestamp() -> str:
+    """Returns the current time and date"""
+    return datetime.now().strftime("%H:%M_%d.%m.%y")
+
+
 def hex_code() -> str:
     """
     Generates a random five-digit decimal number

@@ -7,7 +7,7 @@ import os
 import sys
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Set, Tuple, Union
+from typing import Dict, Iterable, List, Optional, Set, Tuple, Union
 
 from .constants import Constants
 from .shared import CommandLineManager, parse_single_column
@@ -30,6 +30,7 @@ IGNORED_STATUSES: Tuple[str, str, str] = ("PG", "PP", "N")
 QUERY_ISOFORMS_HEADER: str = "query_gene"
 REG: str = "pseudo_"
 RETRO: str = "retro_"
+NONE: str = "None"
 
 MIN_ORTH_PERCENTAGE: float = 50.0
 MAX_REJ_AT_PREPR_PERCENTAGE: float = (1 / 3) * 100
@@ -37,6 +38,18 @@ MIN_INTACT_PROJ_PERCENTAGE: float = 50.0
 MIN_ONE2ONE_PERCENTAGE: float = 50.0
 MAX_ONE2ZERO_PERCENTAGE: float = 25.0
 
+ONE2ONE: str = "one2one"
+ONE2MANY: str = "one2many"
+MANY2ONE: str = "many2one"
+MANY2MANY: str = "many2many"
+ONE2ZERO: str = "one2zero"
+
+EXPECTED_OUTPUT_FILE_NAMES: Dict[str, str] = {
+    "orth_probs_file": "orthology_scores.tsv",
+    "loss_summary": "loss_summary.tsv",
+    "query_genes": "query_genes.tsv",
+    "orthology_classification": "orthology_classification.tsv",
+}
 
 BREAK_LINE: str = "#" * 100
 SUMMARY_BOILERPLATE: str = """
@@ -85,6 +98,7 @@ Orthology prediction statistics:
 \t\t#reference genes with >=1 predicted ortholog: {} ({}%)
 \t\t#reference genes with 1 predicted ortholog: {} ({}%)
 \t\t#reference genes with no predicted orthologs: {} ({}%)
+\t\t#reference gene with no classifiable projections: {} ({}%)
 """
 ## TODO: Consider adding IGNORED_STATUSES to the summary to exclude ambiguity in the results' interpretation
 LOSS_SUMMARY_BOILERPLATE: str = """
@@ -192,6 +206,16 @@ def to_perc(numerator: int, denominator: int) -> float:
     and rounds to third digit after the dot
     """
     return 0.0 if denominator == 0 else round(numerator / denominator * 100, 3)
+
+
+def read_tab(file: str) -> Iterable[str]:
+    """Read a TSV file line by line, yield a generator of field-split lines"""
+    with open(file, "r") as h:
+        for line in h:
+            data: List[str] = line.strip().split("\t")
+            if not data or not data[0]:
+                continue
+            yield data
 
 
 class ResultChecker(CommandLineManager):
@@ -1057,116 +1081,473 @@ class ResultChecker(CommandLineManager):
         return summary
 
 
+class LogParserForSummary(CommandLineManager):
+    """
+    An auxiliary project arguments file parser for summary report production
+    """
+
+    __slots__ = ("args_file", "format")
+
+    def __init__(self, args: os.PathLike, report_format: str) -> None:
+        self.v: bool = True
+        self.set_logging()
+
+        self.args_file: str = args
+        self.format: str = report_format
+
+        self.extract_settings()
+
+    def parse(self) -> Dict[str, Union[str, None]]:
+        """Main args extraction method"""
+        if self.format == "tsv":
+            args: Dict[str, Union[str, None]] = self.parse_tsv()
+
+        return args
+
+    def parse_tsv(self) -> Dict[str, Union[str, None]]:
+        """Extracts args from the TSV-format (legacy) project arguments file"""
+        args: Dict[str] = {
+            "ref_2bit": None,
+            "query_2bit": None,
+            "chains": None,
+            "ref_annotation": None,
+            "chain_file": None,
+            "orth_prob_threshold": None,
+        }
+        isoform_file: Union[os.PathLike, None] = None
+        for data in read_tab(self.args_file):
+            if data[0] == "ref_2bit":
+                if not os.path.exists(data[1]):
+                    self._to_log(
+                        (
+                            "Reference 2bit file %s does not exist or "
+                            "has been deleted since the run passed"
+                        )
+                        % data[1],
+                        "warning",
+                    )
+                args["ref_2bit"] = data[1]
+            if data[0] == "query_2bit":
+                if not os.path.exists(data[1]):
+                    self._to_log(
+                        (
+                            "Query 2bit file %s does not exist or "
+                            "has been deleted since the run passed"
+                        )
+                        % data[1],
+                        "warning",
+                    )
+                args["query_2bit"] = data[1]
+            if data[0] == "chain_file":
+                if not os.path.exists(data[1]):
+                    self._to_log(
+                        (
+                            "Chain file %s does not exist or "
+                            "has been deleted since the run passed"
+                        )
+                        % data[1],
+                        "warning",
+                    )
+                args["chain_file"] = data[1]
+            if data[0] == "ref_annotation":
+                if not os.path.exists(data[1]):
+                    self._die(
+                        (
+                            "Reference annotation file %s does not exist or "
+                            "has been deleted since the run passed"
+                        )
+                        % data[1]
+                    )
+                args["ref_annotation"] = data[1]
+            if data[0] == "isoform_file":
+                if data[1] == NONE:
+                    continue
+                elif not os.path.exists(data[1]):
+                    self._die(
+                        (
+                            "Reference isoforms file %s does not exist or "
+                            "has been deleted since the run passed"
+                        )
+                        % data[1]
+                    )
+                isoform_file = data[1]
+            if data[0] == "orthology_threshold":
+                try:
+                    args["orth_prob_threshold"] = float(data[1])
+                except ValueError:
+                    self._die(
+                        "Orthology probability threshold is not a valid floating point number" 
+                        % data[1]
+                    )
+            if data[0] == "accepted_loss_symbols":
+                accepted_classes: List[str] = [x for x in data[1].split(",") if x]
+                if any(x not in Constants.ALL_LOSS_SYMBOLS for x in accepted_classes):
+                    self._die(
+                        "\"accepted_loss_symbols\" contains inappropriate loss symbols: %s" 
+                        % ", ".join([x for x in accepted_classes if x not in Constants.ALL_LOSS_SYMBOLS])
+                    )
+                args["accepted_classes"] = data[1]
+            if data[0] == "output":
+                if not os.path.exists():
+                    self._die(
+                        (
+                            "Output directory %s does not exist or "
+                            "has been deleted since the run passed"
+                        )
+                        % data[1]
+                    )
+                for attr, expected_name in EXPECTED_OUTPUT_FILE_NAMES.items():
+                    expected_path: str = os.path.join(data[1], expected_name)
+                    if not os.path.exists(expected_path):
+                        self._die("Output file %s does not exist")
+                    args[attr] = expected_path
+        missing_args: List[str] = [x for x, y in args.items() if y is None]
+        if missing_args:
+            self._die(
+                "The following arguments are missing from the project argument file:"
+                % ", ".join(missing_args)
+            )
+        args["isoform_file"] = isoform_file
+        return args
+
+    def parse_json(self) -> Dict[str, Union[str, None]]:
+        """
+        Method for JSON format argument file parsing
+        WARNING: This is a method stub; the method's code will be expanded
+        once additional project_args formats are implemented
+        """
+        pass
+
+    def parse_yaml(self) -> Dict[str, Union[str, None]]:
+        """
+        Method for YAML format argument file parsing
+        WARNING: This is a method stub; the method's code will be expanded
+        once additional project_args formats are implemented
+        """
+        pass
+
+
 class SummaryStat:
     """
     A small class for generating results' summary. Supersedes summary generation with ResultChecker
     """
 
     __slots__ = (
-        "ref_transcript_file",
-        "ref_transcripts",
+        "ref_2bit",
+        "query_2bit",
+        "chain_file",
+        "ref_annotation",
+        "output_dir",
         "orth_prob_threshold",
-        "loss_summary",
-        "ref_isoform_file",
-        "ref_tr2gene",
         "orth_probs_file",
-        "orth_probs",
+        "accepted_classes",
+        "loss_summary",
+        "query_genes",
+        "orthology_classification",
+        "ref_isoform_file",
     )
 
     def __init__(
         self,
-        ref_transcript_file: os.PathLike,
+        ref_2bit: os.PathLike,
+        query_2bit: os.PathLike,
+        chain_file: os.PathLike,
+        ref_annotation: os.PathLike,
+        output_dir: os.PathLike,
         orth_prob_threshold: float,
         orth_probs_file: os.PathLike,
+        accepted_classes: str,
         loss_summary: os.PathLike,
         query_genes: os.PathLike,
-        ref_isoform_file: Union[os.PathLike, None] = None,
+        orthology_classification: os.PathLike,
+        isoform_file: Optional[Union[os.PathLike, None]] = None,
     ) -> None:
         """Entry point"""
-        self.ref_transcript_file: os.PathLike = ref_transcript_file
+        self.ref_2bit: os.PathLike = ref_2bit
+        self.query_2bit: os.PathLike = query_2bit
+        self.chain_file: os.PathLike = chain_file
+        self.ref_annotation: os.PathLike = ref_annotation
+        self.output_dir: os.PathLike = output_dir
         self.orth_prob_threshold: float = orth_prob_threshold
-        self.loss_summary: os.PathLike = loss_summary
-        self.query_genes: os.PathLike =query_genes
         self.orth_probs_file: os.PathLike = orth_probs_file
-        self.ref_isoform_file: Union[os.PathLike, None] = ref_isoform_file
+        self.accepted_classes: List[str] = [x for x in accepted_classes.split(",") if x]
+        self.loss_summary: os.PathLike = loss_summary
+        self.query_genes: os.PathLike = query_genes
+        self.orthology_classification: os.PathLike = orthology_classification
+        self.ref_isoform_file: Union[os.PathLike, None] = isoform_file
 
-    def summary(self) -> None:
-        """Main method"""
+    def summary(self) -> str:
+        """Main summary method"""
         ## parse the input data
-        self.ref_transcripts: Set[str] = set()
-        self.ref_tr2gene: Dict[str, str] = set()
-        with open(self.ref_transcript_file, "r") as h:
-            for line in h:
-                data: List[str] = line.strip().split("\t")
-                if not data or not data[0]:
-                    continue
-                tr: str = data[3]
-                self.ref_transcripts.add(tr)
+        ref_transcripts: Set[str] = set()
+        ref_tr2gene: Dict[str, str] = dict()
+        ref_gene2tr: Dict[str, List[str]] = defaultdict(list)
+        for data in read_tab(self.ref_annotation):
+            tr: str = data[3]
+            ref_transcripts.add(tr)
+        num_trs: int = len(ref_transcripts)
         if self.ref_isoform_file is not None:
-            with open(self.ref_isoform_file, "r") as h:
-                for line in h:
-                    data: List[str] = line.strip().split("\t")
-                    if not data or not data[0]:
-                        continue
-                    tr: str = data[1]
-                    if tr not in self.ref_transcripts: ## TODO: Track in a separate collection??
-                        continue
-                    gene: str = data[0]
-                    self.ref_tr2gene[tr] = gene
+            for data in read_tab(self.ref_isoform_file):
+                tr: str = data[1]
+                if tr not in ref_transcripts:  ## TODO: Track in a separate collection??
+                    continue
+                gene: str = data[0]
+                ref_tr2gene[tr] = gene
+                ref_gene2tr[gene].append(tr)
+            ref_gene_num: int = len(ref_gene2tr)
+        else:
+            ref_gene_num: int = len(ref_transcripts)
         ## summarize the orthology classification step
         tr2chain2prob: Dict[str] = defaultdict(dict)
-        with open(self.orth_probs_file, "r") as h:
-            for line in h:
-                data: List[str] = line.strip().split("\t")
-                if not data or not data[0]:
-                    continue
-                tr: str = data[0]
-                chain: str = data[1]
-                prob: float = float(data[2])
-                tr2chain2prob[tr][chain] = prob
+        for data in read_tab(self.orth_probs_file):
+            tr: str = data[0]
+            if tr == ORTH_PROB_HEADER:
+                continue
+            chain: str = data[1]
+            prob: float = float(data[2])
+            tr2chain2prob[tr][chain] = prob
+        num_classified_trs: int = len(tr2chain2prob)
         num_orth_tr: int = sum(
-            any(tr2chain2prob[x][y] >= self.orth_prob_threshold )
-            for x in tr2chain2prob 
-            for y in tr2chain2prob[x]
+            any(tr2chain2prob[x][y] >= self.orth_prob_threshold for y in tr2chain2prob[x])  
+            for x in tr2chain2prob
         )
         num_zero_orth: int = len(tr2chain2prob) - num_orth_tr
         num_one2one_prob: int = sum(
-            sum(tr2chain2prob[x][y] >= self.orth_prob_threshold) == 1
-            for x in tr2chain2prob 
-            for y in tr2chain2prob[x]
+            sum(tr2chain2prob[x][y] >= self.orth_prob_threshold for y in tr2chain2prob[x]) == 1
+            for x in tr2chain2prob
         )
-        num_no_proj: int = len(self.ref_transcripts) - len(tr2chain2prob)
+        num_no_proj: int = len(ref_transcripts) - len(tr2chain2prob)
         num_ppgene_pred: int = sum(
-            sum(tr2chain2prob[x][y] == -2.0) 
-            for x in tr2chain2prob 
-            for y in tr2chain2prob[x]
+            sum(tr2chain2prob[x][y] == -2.0 for y in tr2chain2prob[x])
+            for x in tr2chain2prob
         )
+        if ref_tr2gene:
+            gene_num_orth: int = len(
+                {
+                    ref_tr2gene[x]
+                    for x in tr2chain2prob
+                    if any(y >= self.orth_prob_threshold for y in tr2chain2prob[x].values())
+                }
+            )
+            gene_num_one2one: int = len(
+                {
+                    x
+                    for x, y in ref_gene2tr.items()
+                    if all(
+                        sum(
+                            c >= self.orth_prob_threshold
+                            for c in tr2chain2prob[z].values()
+                        )
+                        < 2
+                        for z in y
+                    )
+                    and any(
+                        sum(
+                            c >= self.orth_prob_threshold
+                            for c in tr2chain2prob[z].values()
+                        )
+                        == 1
+                        for z in y
+                    )
+                }
+            )
+            gene_num_zero: int = len(
+                {
+                    x
+                    for x, y in ref_gene2tr.items()
+                    if not any(
+                        sum(
+                            c >= self.orth_prob_threshold
+                            for c in tr2chain2prob[z].values()
+                        )
+                        for z in y
+                    )
+                }
+            )
+            num_genes: int = len(ref_gene2tr)
+            gene_num_no_proj: int = num_genes - len(
+                {
+                    x
+                    for x, y in ref_gene2tr.items()
+                    if any(len(tr2chain2prob[z]) for z in y)
+                }
+            )
+        else:
+            gene_num_orth: int = num_orth_tr
+            gene_num_one2one: int = num_one2one_prob
+            gene_num_zero: int = num_zero_orth
+            num_genes: int = len(ref_transcripts)
+            gene_num_no_proj: int = num_no_proj
         ## fetch loss statistics
-        proj2loss: Dict[str, str] = {}
-        tr2loss: Dict[str, str] = {}
-        gene2loss: Dict[str, str] = {}
-        with open(self.loss_summary, "r") as h:
-            for line in h:
-                data: List[str] = line.strip().split("\t")
-                if not data or not data[0]:
-                    continue
-                if data[0] == PROJECTION:
-                    proj2loss[data[1]] = data[2]
-                    continue
-                if data[0] == TRANSCRIPT:
-                    tr2loss[data[1]] = data[2]
-                    continue
-                if data[0] == GENE:
-                    gene2loss[data[1]] = data[2]
-                    continue
+        proj2loss: Dict[str, Dict[str, int]] = defaultdict(int)
+        tr2loss: Dict[str, Dict[str, int]] = defaultdict(int)
+        gene2loss: Dict[str, Dict[str, int]] = defaultdict(int)
+        for data in read_tab(self.loss_summary):
+            if data[0] == PROJECTION:
+                proj2loss[data[2]] += 1
+                continue
+            if data[0] == TRANSCRIPT:
+                tr2loss[data[2]] += 1
+                if self.ref_isoform_file is None:
+                    gene2loss[data[2]] += 1
+                continue
+            if data[0] == GENE:
+                gene2loss[data[2]] += 1
+                continue
+        proj_loss_classified: int = sum(proj2loss.values())
+        proj_present: int = sum(proj2loss[x] for x in self.accepted_classes)
+        proj_non_present: int = proj_loss_classified - proj_present
+        tr_loss_classified: int = sum(proj2loss.values())
+        tr_present: int = sum(tr2loss[x] for x in self.accepted_classes)
+        tr_non_present: int = tr_loss_classified - tr_present
+        genes_loss_classified: int = sum(proj2loss.values())
+        genes_present: int = sum(tr2loss[x] for x in self.accepted_classes)
+        genes_non_present: int = genes_loss_classified - genes_present
+        num_proj_present: int = sum(
+            y in self.accepted_classes for y in proj2loss.values()
+        )
+        num_tr_present: int = sum(
+            y in self.accepted_classes for y in tr2loss.values()
+        )
+        if self.ref_isoform_file is not None:
+            num_gene_present: int = sum(
+                y in self.accepted_classes for y in gene2loss.values()
+            )
+        else:
+            num_gene_present: int = num_tr_present
         ## gene & orthology statistics
         query_genes: Set[str] = set()
-        with open(self.query_genes, "r") as h:
-            for line in h:
-                data: List[str] = line.strip().split("\t")
-                if not data or not data[0]:
-                    continue
-                if data[0] == QUERY_ISOFORMS_HEADER:
-                    continue
-                pass
+        for data in read_tab(self.query_genes):
+            if not data or not data[0]:
+                continue
+            if data[0] == QUERY_ISOFORMS_HEADER:
+                continue
+            query_genes.add(data[0])
+        undefined_orth: int = sum(
+            "lost_" in x or "missing_" in x or "paralog_" in x or "retro_" in x
+            for x in query_genes
+        )
+        defined_orth: int = len(query_genes) - undefined_orth
+        gene2orth_class: Dict[str, Set[str]] = defaultdict(set)
+        for data in read_tab(self.orthology_classification):
+            if data[0] == ORTH_CLASS_HEADER:
+                continue
+            ref_gene: str = data[0]
+            orth_class: str = data[4]
+            gene2orth_class[orth_class].add(ref_gene)
+        ## we must be all set at this point
+        classification: str = CLASSIFICATION_BOILERPLATE.format(
+            num_classified_trs,
+            num_orth_tr,
+            to_perc(num_orth_tr, num_trs),
+            num_one2one_prob,
+            to_perc(num_one2one_prob, num_trs),
+            num_zero_orth,
+            to_perc(num_zero_orth, num_trs),
+            num_no_proj,
+            to_perc(num_no_proj, num_trs),
+            num_ppgene_pred,
+            gene_num_orth,
+            to_perc(gene_num_orth, num_genes),
+            gene_num_one2one,
+            to_perc(gene_num_one2one, num_genes),
+            gene_num_zero,
+            to_perc(gene_num_zero, num_genes),
+            gene_num_no_proj,
+            to_perc(gene_num_no_proj, num_genes),
+        )
+        loss_summary: str = LOSS_SUMMARY_BOILERPLATE.format(
+            ", ".join(self.accepted_classes),
+            proj2loss.get("FI", 0),
+            to_perc(proj2loss.get("FI", 0), len(proj2loss)),
+            proj2loss.get("I", 0),
+            to_perc(proj2loss.get("I", 0), len(proj2loss)),
+            proj2loss.get("PI", 0),
+            to_perc(proj2loss.get("PI", 0), len(proj2loss)),
+            proj2loss.get("UL", 0),
+            to_perc(proj2loss.get("UL", 0), len(proj2loss)),
+            proj2loss.get("L", 0),
+            to_perc(proj2loss.get("L", 0), len(proj2loss)),
+            proj2loss.get("M", 0),
+            to_perc(proj2loss.get("M", 0), len(proj2loss)),
+            proj_present,
+            to_perc(proj_present, proj_loss_classified),
+            proj_non_present,
+            to_perc(proj_non_present, proj_loss_classified),
 
+            tr2loss.get("FI", 0),
+            to_perc(tr2loss.get("FI", 0), len(tr2loss)),
+            tr2loss.get("I", 0),
+            to_perc(tr2loss.get("I", 0), len(tr2loss)),
+            tr2loss.get("PI", 0),
+            to_perc(tr2loss.get("PI", 0), len(tr2loss)),
+            tr2loss.get("UL", 0),
+            to_perc(tr2loss.get("UL", 0), len(tr2loss)),
+            tr2loss.get("L", 0),
+            to_perc(tr2loss.get("L", 0), len(tr2loss)),
+            tr2loss.get("M", 0),
+            to_perc(tr2loss.get("M", 0), len(tr2loss)),
+            tr_present,
+            to_perc(tr_present, tr_loss_classified),
+            tr_non_present,
+            to_perc(tr_non_present, tr_loss_classified),
+
+            gene2loss.get("FI", 0),
+            to_perc(gene2loss.get("FI", 0), len(gene2loss)),
+            gene2loss.get("I", 0),
+            to_perc(gene2loss.get("I", 0), len(gene2loss)),
+            gene2loss.get("PI", 0),
+            to_perc(gene2loss.get("PI", 0), len(gene2loss)),
+            gene2loss.get("UL", 0),
+            to_perc(gene2loss.get("UL", 0), len(gene2loss)),
+            gene2loss.get("L", 0),
+            to_perc(gene2loss.get("L", 0), len(gene2loss)),
+            gene2loss.get("M", 0),
+            to_perc(gene2loss.get("M", 0), len(gene2loss)),
+            genes_present,
+            to_perc(genes_present, genes_loss_classified),
+            genes_non_present,
+            to_perc(genes_non_present, genes_loss_classified),
+        )
+        orth_summary: str = ORTHOLOGY_BOILERPLATE.format(
+            ref_gene_num,
+            len(query_genes),
+            defined_orth,
+            to_perc(defined_orth, len(query_genes)),
+            undefined_orth,
+            to_perc(undefined_orth, len(query_genes)),
+            len(gene2orth_class.get(ONE2ONE, [])),
+            to_perc(len(gene2orth_class.get(ONE2ONE, [])), ref_gene_num),
+            len(gene2orth_class.get(ONE2MANY, [])),
+            to_perc(len(gene2orth_class.get(ONE2MANY, [])), ref_gene_num),
+            len(gene2orth_class.get(MANY2ONE, [])),
+            to_perc(len(gene2orth_class.get(MANY2ONE, [])), ref_gene_num),
+            len(gene2orth_class.get(MANY2MANY, [])),
+            to_perc(len(gene2orth_class.get(MANY2MANY, [])), ref_gene_num),
+            len(gene2orth_class.get(ONE2ZERO, [])),
+            to_perc(len(gene2orth_class.get(ONE2ZERO, [])), ref_gene_num),
+            num_proj_present,
+            to_perc(num_proj_present, len(proj2loss)),
+            num_tr_present,
+            to_perc(num_tr_present, len(tr2loss)),
+            num_gene_present,
+            to_perc(num_gene_present, (len(gene2loss) if gene2loss else len(tr2loss))),
+        )
+        if self.ref_isoform_file is not None:
+            isoforms_line: str = ISOFORMS_LINE.format(self.ref_isoform_file)
+        else:
+            isoforms_line: str = ISOFORMS_CAVEAT
+        summary_text: str = SUMMARY_BOILERPLATE.format(
+            br=BREAK_LINE,
+            ref_2bit=self.ref_2bit,
+            query_2bit=self.query_2bit,
+            chains=self.chain_file,
+            ref_annot=self.ref_annotation,
+            output=self.output_dir,
+            isoforms_line=isoforms_line,
+            orthology_class_report=classification,
+            loss_summary=loss_summary,
+            orthology_res_report=orth_summary,
+        )
+
+        return summary_text

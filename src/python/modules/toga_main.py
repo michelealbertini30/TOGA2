@@ -23,7 +23,7 @@ from .parallel_jobs_manager import (
     ParaStrategy,
 )
 from .results_checks import ResultChecker, SanityCheckResult
-from .shared import CommandLineManager, dir_name_by_date, get_upper_dir, hex_dir_name
+from .shared import CommandLineManager, dir_name_by_date, get_upper_dir
 
 __author__ = "Yury V. Malovichko"
 __year__ = "2024"
@@ -2441,19 +2441,19 @@ class TogaMain(CommandLineManager):
                     "warning",
                 )
                 self.failed_alignment_batches.append(dir_name)
-                if dir_name == "batch0":
-                    quq = os.path.join(dir_path, "log.txt")
-                    print("PRINTING CESAR LOG")
-                    print(self._exec(f"tail -n30 {quq}", "MUST NOT FAIL!!"))
-                    puq = os.path.join(self.nextflow_dir, "cesar_align_TOGA2_3", "cesar_align_TOGA2_3.log")
-                    print("PRINTING NEXTFLOW CASH")
-                    print(self._exec(f"tail -n150 {puq}", "MUST NOT FAIL EITHER!!"))
-                    peq = os.path.join(self.nextflow_dir, ".nextflow.log")
-                    print("PRINTING NEXTFLOW LOG")
-                    print(self._exec(f"tail -n150 {peq}", "THIS ALSO SHOULD NOT"))
-                    print("MANUAL CESAR CONTROL!!!!")
-                    kek = os.path.join(self.tmp, "cesar_alignment_jobs", "batch0.ex")
-                    print(self._exec(f"grep cesar_exec {kek} | xargs -I{{}} /bin/bash -c \"{{}} -v\"", "CESAR WILL FALL!!"))
+                # if dir_name == "batch0":
+                #     quq = os.path.join(dir_path, "log.txt")
+                #     print("PRINTING CESAR LOG")
+                #     print(self._exec(f"tail -n30 {quq}", "MUST NOT FAIL!!"))
+                #     puq = os.path.join(self.nextflow_dir, "cesar_align_TOGA2_3", "cesar_align_TOGA2_3.log")
+                #     print("PRINTING NEXTFLOW CASH")
+                #     print(self._exec(f"tail -n150 {puq}", "MUST NOT FAIL EITHER!!"))
+                #     peq = os.path.join(self.nextflow_dir, ".nextflow.log")
+                #     print("PRINTING NEXTFLOW LOG")
+                #     print(self._exec(f"tail -n150 {peq}", "THIS ALSO SHOULD NOT"))
+                #     print("MANUAL CESAR CONTROL!!!!")
+                #     kek = os.path.join(self.tmp, "cesar_alignment_jobs", "batch0.ex")
+                #     print(self._exec("grep cesar_exec %s | xargs -I{} /bin/bash -c \"{} -v\"" % kek, "CESAR WILL FALL!!"))
             for out_file in Constants.CESAR_OUT_FILES:
                 batch_path: str = os.path.join(dir_path, out_file)
                 out_file_slot: str = Constants.CESAR_FILE_TO_DEST[out_file]
@@ -3187,13 +3187,28 @@ class TogaMain(CommandLineManager):
 
     def get_summary(self) -> None:
         """Prepares a summary file of all successfully completed steps"""
-        summary: str = self.result_checker.summary(
-            self.ref_2bit,
-            self.query_2bit,
-            self.chain_file,
-            self.ref_annotation,
-            self.output,
-        )
+        from .results_checks import SummaryStat
+        # summary: str = self.result_checker.summary(
+        #     self.ref_2bit,
+        #     self.query_2bit,
+        #     self.chain_file,
+        #     self.ref_annotation,
+        #     self.output,
+        # )
+        summary: str = SummaryStat(
+            ref_2bit=self.ref_2bit,
+            query_2bit=self.query_2bit,
+            chain_file=self.chain_file,
+            ref_annotation=self.bed_file_copy,
+            output_dir=self.output,
+            orth_prob_threshold=self.orthology_threshold,
+            orth_probs_file=self.pred_scores,
+            accepted_classes=self.accepted_loss_symbols,
+            loss_summary=self.gene_loss_summary,
+            query_genes=self.query_genes,
+            orthology_classification=self.orth_resolution_report,
+            isoform_file=self.isoform_file,
+        ).summary()
         self._to_log("TOGA2 run summary:\n%s\n" % summary)
         self._to_log("The same summary can be found at %s" % self.summary)
         with open(self.summary, "w") as h:
