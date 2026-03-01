@@ -462,7 +462,7 @@ class ChainClassifier(CommandLineManager):
                 h.write("\t".join([g, orthologs, paralogs, spanning, pseudo]) + "\n")
 
         ## second, detect and record unclassified genes
-        rejected_transcripts: Set[str] = init_tr_set.difference(set(results.transcript))
+        rejected_transcripts: Set[str] = init_tr_set.difference(set(results[results["pred"] != 2.0].transcript))
         if not rejected_transcripts and not self.underscored_chain_projections:
             return
         with open(self.rejection_log, "w") as h:
