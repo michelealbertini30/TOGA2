@@ -652,7 +652,7 @@ class RejectionReasons:
     )
     ORTH_REJ_TEMPLATE: str = "\t".join(
         (
-            "TRANSCRIPT",
+            "PROJECTION",
             "{}",
             "0",
             "Rejected after the gene resolution step",
