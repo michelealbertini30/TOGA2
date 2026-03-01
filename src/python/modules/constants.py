@@ -247,6 +247,7 @@ class Constants:
         "CHROM_UNALIGNED": "feature_extraction",
         "TRANSCRIPT_UNALIGNED": "feature_extraction",
         "NO_PROJ": "classification",
+        "PPGENE_ONLY": "classification",
         "INSUFFICIENT_CHAIN_SCORE": "classification",
         "CHAIN_LIMIT_EXCEEDED": "preprocessing",
         "EXCEEDS_MEMORY": "preprocessing",
@@ -530,6 +531,9 @@ class RejectionReasons:
     )
     UNCLASS_REJ_REASON: str = "\t".join(
         ("TRANSCRIPT", "{}", "0", "No classifiable projections found", "NO_PROJ", "M")
+    )
+    PPGENE_ONLY_REASON: str = "\t".join(
+        ("TRANSCRIPT", "{}", "0", "Only processed pseudogene projections found", "PPGENE_ONLY", "M")
     )
     UNDERSCORED_REJ_REASON: str = "\t".join(
         (
