@@ -22,7 +22,9 @@
     * Updated `bigWigToWig` version (`-bed` and `-header` options) now distributed with TOGA2
 * Minor changes:
     * `run`:
+        * Transcript with processed pseudogene-only projections are now classified as *Missing* and appear in the rejection log under the `PPGENE_ONLY` label 
         * Stepwise rejection logs are now appended to `rejected_items.tsv` instead of being dumped to separate temporary files
+        * Fixing rejection level for `GENE_TREE_REJECTION` category from `TRANSCRIPT` to `PROJECTION`
         * default bootstrap number in `fine_ortology_resolver` set to 5000
         * resolving faulty imports from `shared.py` in scheduler scripts
     * `spliceai`:
