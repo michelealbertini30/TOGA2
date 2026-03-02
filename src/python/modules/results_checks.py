@@ -1395,26 +1395,14 @@ class SummaryStat:
                 gene2loss[data[2]] += 1
                 continue
         proj_loss_classified: int = sum(proj2loss.values())
-        proj_present: int = sum(proj2loss[x] for x in self.accepted_classes)
+        proj_present: int = sum(proj2loss.get(x, 0) for x in self.accepted_classes)
         proj_non_present: int = proj_loss_classified - proj_present
         tr_loss_classified: int = sum(proj2loss.values())
-        tr_present: int = sum(tr2loss[x] for x in self.accepted_classes)
+        tr_present: int = sum(tr2loss.get(x, 0) for x in self.accepted_classes)
         tr_non_present: int = tr_loss_classified - tr_present
         genes_loss_classified: int = sum(proj2loss.values())
-        genes_present: int = sum(tr2loss[x] for x in self.accepted_classes)
+        genes_present: int = sum(tr2loss.get(x, 0) for x in self.accepted_classes)
         genes_non_present: int = genes_loss_classified - genes_present
-        num_proj_present: int = sum(
-            y in self.accepted_classes for y in proj2loss.values()
-        )
-        num_tr_present: int = sum(
-            y in self.accepted_classes for y in tr2loss.values()
-        )
-        if self.ref_isoform_file is not None:
-            num_gene_present: int = sum(
-                y in self.accepted_classes for y in gene2loss.values()
-            )
-        else:
-            num_gene_present: int = num_tr_present
         ## gene & orthology statistics
         query_genes: Set[str] = set()
         for data in read_tab(self.query_genes):
@@ -1459,51 +1447,51 @@ class SummaryStat:
         loss_summary: str = LOSS_SUMMARY_BOILERPLATE.format(
             ", ".join(self.accepted_classes),
             proj2loss.get("FI", 0),
-            to_perc(proj2loss.get("FI", 0), len(proj2loss)),
+            to_perc(proj2loss.get("FI", 0), proj_loss_classified),
             proj2loss.get("I", 0),
-            to_perc(proj2loss.get("I", 0), len(proj2loss)),
+            to_perc(proj2loss.get("I", 0), proj_loss_classified),
             proj2loss.get("PI", 0),
-            to_perc(proj2loss.get("PI", 0), len(proj2loss)),
+            to_perc(proj2loss.get("PI", 0), proj_loss_classified),
             proj2loss.get("UL", 0),
-            to_perc(proj2loss.get("UL", 0), len(proj2loss)),
+            to_perc(proj2loss.get("UL", 0), proj_loss_classified),
             proj2loss.get("L", 0),
-            to_perc(proj2loss.get("L", 0), len(proj2loss)),
+            to_perc(proj2loss.get("L", 0), proj_loss_classified),
             proj2loss.get("M", 0),
-            to_perc(proj2loss.get("M", 0), len(proj2loss)),
+            to_perc(proj2loss.get("M", 0), proj_loss_classified),
             proj_present,
             to_perc(proj_present, proj_loss_classified),
             proj_non_present,
             to_perc(proj_non_present, proj_loss_classified),
 
             tr2loss.get("FI", 0),
-            to_perc(tr2loss.get("FI", 0), len(tr2loss)),
+            to_perc(tr2loss.get("FI", 0), tr_loss_classified),
             tr2loss.get("I", 0),
-            to_perc(tr2loss.get("I", 0), len(tr2loss)),
+            to_perc(tr2loss.get("I", 0), tr_loss_classified),
             tr2loss.get("PI", 0),
-            to_perc(tr2loss.get("PI", 0), len(tr2loss)),
+            to_perc(tr2loss.get("PI", 0), tr_loss_classified),
             tr2loss.get("UL", 0),
-            to_perc(tr2loss.get("UL", 0), len(tr2loss)),
+            to_perc(tr2loss.get("UL", 0), tr_loss_classified),
             tr2loss.get("L", 0),
-            to_perc(tr2loss.get("L", 0), len(tr2loss)),
+            to_perc(tr2loss.get("L", 0), tr_loss_classified),
             tr2loss.get("M", 0),
-            to_perc(tr2loss.get("M", 0), len(tr2loss)),
+            to_perc(tr2loss.get("M", 0), tr_loss_classified),
             tr_present,
             to_perc(tr_present, tr_loss_classified),
             tr_non_present,
             to_perc(tr_non_present, tr_loss_classified),
 
             gene2loss.get("FI", 0),
-            to_perc(gene2loss.get("FI", 0), len(gene2loss)),
+            to_perc(gene2loss.get("FI", 0), genes_loss_classified),
             gene2loss.get("I", 0),
-            to_perc(gene2loss.get("I", 0), len(gene2loss)),
+            to_perc(gene2loss.get("I", 0), genes_loss_classified),
             gene2loss.get("PI", 0),
-            to_perc(gene2loss.get("PI", 0), len(gene2loss)),
+            to_perc(gene2loss.get("PI", 0), genes_loss_classified),
             gene2loss.get("UL", 0),
-            to_perc(gene2loss.get("UL", 0), len(gene2loss)),
+            to_perc(gene2loss.get("UL", 0), genes_loss_classified),
             gene2loss.get("L", 0),
-            to_perc(gene2loss.get("L", 0), len(gene2loss)),
+            to_perc(gene2loss.get("L", 0), genes_loss_classified),
             gene2loss.get("M", 0),
-            to_perc(gene2loss.get("M", 0), len(gene2loss)),
+            to_perc(gene2loss.get("M", 0), genes_loss_classified),
             genes_present,
             to_perc(genes_present, genes_loss_classified),
             genes_non_present,
@@ -1526,12 +1514,6 @@ class SummaryStat:
             to_perc(len(gene2orth_class.get(MANY2MANY, [])), ref_gene_num),
             len(gene2orth_class.get(ONE2ZERO, [])),
             to_perc(len(gene2orth_class.get(ONE2ZERO, [])), ref_gene_num),
-            num_proj_present,
-            to_perc(num_proj_present, len(proj2loss)),
-            num_tr_present,
-            to_perc(num_tr_present, len(tr2loss)),
-            num_gene_present,
-            to_perc(num_gene_present, (len(gene2loss) if gene2loss else len(tr2loss))),
         )
         if self.ref_isoform_file is not None:
             isoforms_line: str = ISOFORMS_LINE.format(self.ref_isoform_file)
