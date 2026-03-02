@@ -7,6 +7,7 @@
     * Postoga summary table (`toga.table.gz`) added to the output for `run` mode
     * Projections of the same reference gene/transcript overlapping by absolute coding sequence coordinates are now collapsed into a single query gene regardless of their overlap by coding exon coordinates
     * `--paralogs_over_spanning` flag for swapping annotation priority
+    * revised naming notation for one-to-many genes: addoitional copies for genes with more than 26 instances in the query get the binary letter suffix ('_aa', '_ab', etc.); genes with more than 300 orthologous copies lead to a hardcoded crash.
 * `integrate` mode:
     * Paralogs overlapping orthologous projections are now retained as long as they contain enough novel sequence compared to the rest of the projections in the locus
 * **NEW MODE**: `postoga` for [Postoga](https://github.com/alejandrogzi/postoga) integration
@@ -25,12 +26,14 @@
         * Transcript with processed pseudogene-only projections are now classified as *Missing* and appear in the rejection log under the `PPGENE_ONLY` label 
         * Stepwise rejection logs are now appended to `rejected_items.tsv` instead of being dumped to separate temporary files
         * Fixing rejection level for `GENE_TREE_REJECTION` category from `TRANSCRIPT` to `PROJECTION`
-        * default bootstrap number in `fine_ortology_resolver` set to 5000
-        * resolving faulty imports from `shared.py` in scheduler scripts
+        * Default bootstrap number in `fine_ortology_resolver.py` set to 5000
+        * Resolving faulty imports from `shared.py` in scheduler scripts
+        * Temporary workarounds for conflicting paralogous/processed pseudogene projections from the rejection log in the gene loss summary module (`conservation_summary.py`);
     * `spliceai`:
         * overlapping coordinates bug fixed
     * `sequence-alignment`:
         * error-free exit if no sequences were found across the query list for the focal transcript
+        * PRANK is set as default sequence aligner;
         * fixed random seed option for PRANK
     * `prepare-input`:
         * trailing comma-insensitive parsing for BED fields 10 and 11
