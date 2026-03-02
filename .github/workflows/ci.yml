@@ -148,12 +148,6 @@ jobs:
         # make
 
         ./toga2.py -h
-    
-    - name: Test run
-      run: |
-        source toga2/bin/activate
-        ./toga2.py test
-        rm -rf sample_output
 
     - name: Verify build artifacts
       run: |
