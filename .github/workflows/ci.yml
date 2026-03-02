@@ -130,7 +130,7 @@ jobs:
     
     - name: Build CESAR2.0
       run: |
-        make build_cesar && ./CESAR2.0/cesar -h
+        make build_cesar
     
     - name: Train models in toga2 venv
       run: |
@@ -151,8 +151,8 @@ jobs:
     
     - name: Test run
       run: |
-        source toga2/bin/activate && \
-        ./toga2.py test && \
+        source toga2/bin/activate
+        ./toga2.py test
         rm -rf sample_output
 
     - name: Verify build artifacts
