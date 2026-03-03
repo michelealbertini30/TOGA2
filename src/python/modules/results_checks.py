@@ -1086,18 +1086,17 @@ class LogParserForSummary(CommandLineManager):
     An auxiliary project arguments file parser for summary report production
     """
 
-    __slots__ = ("args_file", "format")
+    __slots__ = ("args_file", "format", "expanded")
 
-    def __init__(self, args: os.PathLike, report_format: str) -> None:
+    def __init__(self, args: os.PathLike, report_format: str, expanded: bool) -> None:
         self.v: bool = True
         self.set_logging()
 
         self.args_file: str = args
         self.format: str = report_format
+        self.expanded: bool = expanded
 
-        self.extract_settings()
-
-    def parse(self) -> Dict[str, Union[str, None]]:
+    def extract_settings(self) -> Dict[str, Union[str, None]]:
         """Main args extraction method"""
         if self.format == "tsv":
             args: Dict[str, Union[str, None]] = self.parse_tsv()
@@ -1109,10 +1108,11 @@ class LogParserForSummary(CommandLineManager):
         args: Dict[str] = {
             "ref_2bit": None,
             "query_2bit": None,
-            "chains": None,
-            "ref_annotation": None,
             "chain_file": None,
+            "ref_annotation": None,
             "orth_prob_threshold": None,
+            "accepted_classes": None,
+            "output_dir": None,
         }
         isoform_file: Union[os.PathLike, None] = None
         for data in read_tab(self.args_file):
@@ -1188,7 +1188,7 @@ class LogParserForSummary(CommandLineManager):
                     )
                 args["accepted_classes"] = data[1]
             if data[0] == "output":
-                if not os.path.exists():
+                if not os.path.exists(data[1]):
                     self._die(
                         (
                             "Output directory %s does not exist or "
@@ -1196,6 +1196,7 @@ class LogParserForSummary(CommandLineManager):
                         )
                         % data[1]
                     )
+                args["output_dir"] = data[1]
                 for attr, expected_name in EXPECTED_OUTPUT_FILE_NAMES.items():
                     expected_path: str = os.path.join(data[1], expected_name)
                     if not os.path.exists(expected_path):
@@ -1204,10 +1205,11 @@ class LogParserForSummary(CommandLineManager):
         missing_args: List[str] = [x for x, y in args.items() if y is None]
         if missing_args:
             self._die(
-                "The following arguments are missing from the project argument file:"
+                "The following arguments are missing from the project argument file: %s"
                 % ", ".join(missing_args)
             )
         args["isoform_file"] = isoform_file
+        args["expanded"] = self.expanded
         return args
 
     def parse_json(self) -> Dict[str, Union[str, None]]:
@@ -1245,6 +1247,7 @@ class SummaryStat:
         "query_genes",
         "orthology_classification",
         "ref_isoform_file",
+        "expanded",
     )
 
     def __init__(
@@ -1261,6 +1264,7 @@ class SummaryStat:
         query_genes: os.PathLike,
         orthology_classification: os.PathLike,
         isoform_file: Optional[Union[os.PathLike, None]] = None,
+        expanded: Optional[bool] = False,
     ) -> None:
         """Entry point"""
         self.ref_2bit: os.PathLike = ref_2bit
@@ -1275,6 +1279,7 @@ class SummaryStat:
         self.query_genes: os.PathLike = query_genes
         self.orthology_classification: os.PathLike = orthology_classification
         self.ref_isoform_file: Union[os.PathLike, None] = isoform_file
+        self.expanded: bool = expanded
 
     def summary(self) -> str:
         """Main summary method"""

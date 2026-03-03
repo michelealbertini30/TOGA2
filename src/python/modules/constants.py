@@ -11,6 +11,8 @@ __credits__ = "Bogdan M. Kirilenko"
 class Constants:
     LOCATION = os.path.dirname(__file__)
 
+    CONFIG_FORMATS: Tuple[str] = ("json", "tsv", "yaml")
+
     BINARIES_TO_CHECK: Dict[str, str] = {
         "bigbedtobed_binary": "bigBedToBed",
         "bedtobigbed_binary": "bedToBigBed",

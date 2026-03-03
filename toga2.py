@@ -7,7 +7,7 @@ Master script for TOGA2
 import logging
 import os
 import sys
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 import click
 
@@ -27,7 +27,7 @@ from src.python.modules.cesar_wrapper_constants import (
     LAST_DONOR,
     MIN_ASMBL_GAP_SIZE,
 )
-from src.python.modules.codon_alignment import ALIGNERS_TO_USE, MACSE
+from src.python.modules.codon_alignment import ALIGNERS_TO_USE, PRANK
 from src.python.modules.constants import TOGA2_EPILOG, Constants
 from src.python.modules.input_producer import (
     DEFAULT_MEMORY_LIMIT,
@@ -1835,8 +1835,8 @@ Supported symbols are: %s. Keyword ALL lets all possible statuses in."""
     % ",".join(Constants.ALL_LOSS_SYMBOLS),
 )
 @integration_options.option(
-    "--min_rel_novelty_threshold",
-    "-minrel",
+    "--paralog_rel_novelty_threshold",
+    "-parrel",
     type=click.FloatRange(min=0.0, max=1.0),
     metavar="FLOAT",
     default=0.3,
@@ -1847,8 +1847,8 @@ Supported symbols are: %s. Keyword ALL lets all possible statuses in."""
     ),
 )
 @integration_options.option(
-    "--min_abs_novelty_threshold",
-    "-minabs",
+    "--paralog_abs_novelty_threshold",
+    "-parabs",
     type=click.IntRange(min=1, max=None),
     metavar="INT",
     default=15,
@@ -1856,6 +1856,30 @@ Supported symbols are: %s. Keyword ALL lets all possible statuses in."""
     help=(
         "Minimal number of exon bases not overlapping with orthologous items for paralogous "
         "sequences to be retained"
+    ),
+)
+@integration_options.option(
+    "--lost_rel_novelty_threshold",
+    "-lostrel",
+    type=click.FloatRange(min=0.0, max=1.0),
+    metavar="FLOAT",
+    default=0.3,
+    show_default=True,
+    help=(
+        "Minimal fraction of exon length not overlapping with functionally intact "
+        "ortholog for lost orthologs to be retained"
+    ),
+)
+@integration_options.option(
+    "--lost_abs_novelty_threshold",
+    "-lostabs",
+    type=click.IntRange(min=1, max=None),
+    metavar="INT",
+    default=15,
+    show_default=True,
+    help=(
+        "Minimal number of exon bases not overlapping with functionally intact "
+        "ortholog for lost orthologs to be retained"
     ),
 )
 @browser_options.option(
@@ -2069,7 +2093,7 @@ Relevant if PRANK aligner is selected""",
     "-a",
     type=click.Choice(ALIGNERS_TO_USE, case_sensitive=False),
     metavar="ALIGNER_NAME",
-    default=MACSE,
+    default=PRANK,
     show_default=True,
     help=(
         "Aligner program to use. Options are: %s. Case-insensitive"
@@ -2349,6 +2373,51 @@ def cookbook() -> None:
     WARNING: This mode is currently under development, with the list of commands being gradually expanded
     """
     pass
+
+
+@toga2.command(
+    context_settings=CONTEXT_SETTINGS,
+    no_args_is_help=True,
+    short_help="Generate a summary for a finished run from its config file"
+)
+@click.option(
+    "--config",
+    type=click.Path(exists=True),
+    metavar="CONFIG_FILE",
+    required=True,
+    default=None,
+    show_default=True,
+    help=(
+        "A path to a TOGA2 run's configuration file (logs/project_args_<>). "
+        "The respective output directory is expected to exist and contain "
+        "all the default output files."
+    )
+)
+@click.option(
+    "--config_format",
+    "-f",
+    type=click.Choice(Constants.CONFIG_FORMATS),
+    default="tsv",
+    show_default=True,
+    help=("Input config file format")
+)
+@click.option(
+    "--expanded",
+    is_flag=True,
+    default=False,
+    show_default=True,
+    help=(
+        "If set, an expanded summary is produced"
+    )
+)
+def summary(
+    config: click.Path,
+    config_format: Optional[str] = "tsv",
+    expanded: Optional[bool] = False,
+) -> None:
+    from src.python.modules.results_checks import LogParserForSummary, SummaryStat
+    kwargs: Dict[str, Any] = LogParserForSummary(config, config_format, expanded).extract_settings()
+    print(SummaryStat(**kwargs).summary())
 
 
 @toga2.command(
