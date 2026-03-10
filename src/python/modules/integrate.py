@@ -177,8 +177,10 @@ class AnnotationIntegrator(CommandLineManager):
         "discarded_items",
         "final_projections",
         "accepted_statuses",
-        "min_rel_novelty_threshold",
-        "min_abs_novelty_threshold",
+        "paralog_rel_novelty_threshold",
+        "paralog_abs_novelty_threshold",
+        "lost_rel_novelty_threshold",
+        "lost_abs_novelty_threshold",
         "output",
         "gene_tsv",
         "gene_bed",
@@ -206,8 +208,10 @@ class AnnotationIntegrator(CommandLineManager):
         ref_data: Union[str, os.PathLike],
         output: Union[str, os.PathLike],
         accepted_statuses: str,
-        min_rel_novelty_threshold: float,
-        min_abs_novelty_threshold: int,
+        paralog_rel_novelty_threshold: float,
+        paralog_abs_novelty_threshold: int,
+        lost_rel_novelty_threshold: float,
+        lost_abs_novelty_threshold: int,
         prefix: str,
         skip_ucsc: bool,
         chrom_sizes: Union[str, os.PathLike, None],
@@ -231,8 +235,10 @@ class AnnotationIntegrator(CommandLineManager):
             self.accepted_statuses: List[str] = [
                 x for x in accepted_statuses.split(",") if x
             ]  ## TODO: Add sanity checks
-        self.min_rel_novelty_threshold: float = min_rel_novelty_threshold
-        self.min_abs_novelty_threshold: int = min_abs_novelty_threshold
+        self.paralog_rel_novelty_threshold: float = paralog_rel_novelty_threshold
+        self.paralog_abs_novelty_threshold: int = paralog_abs_novelty_threshold
+        self.lost_rel_novelty_threshold: float = lost_rel_novelty_threshold
+        self.lost_abs_novelty_threshold: int = lost_abs_novelty_threshold
         self.query_projections: Dict[str, BedRecord] = {}
         self.query_proj2ref: Dict[str, str] = {}
         self.query_annotation: Dict[str, List[str]] = defaultdict(list)
@@ -848,7 +854,7 @@ class AnnotationIntegrator(CommandLineManager):
                         ## if at least one exon meets the requirements, add it to the output
                         min_rel: float = min_abs / paralog_exon.length()
                         if (
-                            min_abs >= self.min_abs_novelty_threshold and min_rel >= self.min_rel_novelty_threshold
+                            min_abs >= self.paralog_abs_novelty_threshold and min_rel >= self.paralog_rel_novelty_threshold
                         ):
                             to_add = True
                             break
@@ -918,7 +924,7 @@ class AnnotationIntegrator(CommandLineManager):
                             ## if at least one exon meets the requirements, add it to the output
                             min_rel: float = min_abs / lost_exon.length()
                             if (
-                                min_abs >= self.min_abs_novelty_threshold and min_rel >= self.min_rel_novelty_threshold
+                                min_abs >= self.lost_abs_novelty_threshold and min_rel >= self.lost_rel_novelty_threshold
                             ):
                                 to_add = True
                                 break
