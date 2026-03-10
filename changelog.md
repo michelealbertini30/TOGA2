@@ -10,17 +10,7 @@
     * revised naming notation for one-to-many genes: addoitional copies for genes with more than 26 instances in the query get the binary letter suffix ('_aa', '_ab', etc.); genes with more than 300 orthologous copies lead to a hardcoded crash.
 * `integrate` mode:
     * Paralogs overlapping orthologous projections are now retained as long as they contain enough novel sequence compared to the rest of the projections in the locus
-* **NEW MODE**: `postoga` for [Postoga](https://github.com/alejandrogzi/postoga) integration
-* **NEW MODE**: `sequence-alignment` for orthologous sequence alignment across multiple same-referenced TOGA2 runs (alpha version)
-* Apptainer support (see `supply/containers`):
-    * Stable local execution container image
-    * Batch manager-compatible image template
-    * Removing `toga2.py` as a container entry point
-    * Adding container support for parallel step scripts (see `supply/containers/README.md`)
-* Updated local installation
-    * Postoga installation
-    * Conda environment support
-    * Updated `bigWigToWig` version (`-bed` and `-header` options) now distributed with TOGA2
+* **NEW MODE**: `summary` for concise run summary generation
 * Minor changes:
     * `run`:
         * Transcript with processed pseudogene-only projections are now classified as *Missing* and appear in the rejection log under the `PPGENE_ONLY` label 
@@ -29,12 +19,16 @@
         * Default bootstrap number in `fine_ortology_resolver.py` set to 5000
         * Resolving faulty imports from `shared.py` in scheduler scripts
         * Temporary workarounds for conflicting paralogous/processed pseudogene projections from the rejection log in the gene loss summary module (`conservation_summary.py`);
+        * Timestamps removed from the project names and moved to `projet_args.tsv` instead
     * `spliceai`:
         * overlapping coordinates bug fixed
+        * missing project_name arg fixed
     * `sequence-alignment`:
         * error-free exit if no sequences were found across the query list for the focal transcript
-        * PRANK is set as default sequence aligner;
+        * PRANK is set as default sequence aligner
         * fixed random seed option for PRANK
+        * Query projection names added to FASTA headers if `--add_projection_names` flag if set
+        * Added proper handling for exons present in one sequence only
     * `prepare-input`:
         * trailing comma-insensitive parsing for BED fields 10 and 11
 
