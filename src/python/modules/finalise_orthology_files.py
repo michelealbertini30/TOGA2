@@ -503,7 +503,7 @@ class QueryGeneNamer(CommandLineManager):
                 (MAX_LEGAL_COPY_NUM, name, num)
             )
         first_letter: int = chr(BACKTICK + num // ZEE)
-        last_letter: int = chr(BACKTICK + num % ZEE)
+        last_letter: int = chr(BACKTICK + num % ZEE + int(num // ZEE > 1))
         return first_letter + last_letter
 
 
