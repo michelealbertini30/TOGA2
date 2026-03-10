@@ -2154,6 +2154,17 @@ Does not work with other aligners.""",
     help="A path to write the results to [default: stdout]",
 )
 @out_options.option(
+    "--add_projection_names",
+    is_flag=True,
+    default=False,
+    show_default=True,
+    help=(
+        "If set, projection names are appended to the query identifiers "
+        "in the FASTA file headers (NOTE: Current applies to the final "
+        "nucleotide alignment file only)"
+    ),
+)
+@out_options.option(
     "--amino_acids_output",
     type=click.Path(exists=False),
     default=None,
