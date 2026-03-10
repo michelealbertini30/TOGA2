@@ -805,11 +805,11 @@ class CommandLineManager:
             stdout=subprocess.PIPE if gather_stdout else None,
             stderr=subprocess.PIPE,
         )
-        if self.v and not shun_verbosity:
+        if self.v and not shun_verbosity and not gather_stdout:
             for line in pr.stdout:
                 if not line:
                     continue
-                # self._echo(line)
+                self._echo(line) ##what was this supposed to mean?
         stdout, stderr = pr.communicate(input=input_)
         rc: int = pr.returncode
         if rc != 0:
