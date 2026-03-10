@@ -106,6 +106,7 @@ class CodonAligner(CommandLineManager):
         "tmp_dir",
         "keep_tmp",
         "output",
+        "add_projection_names",
         "confidence_score_file",
         "exon2phase",
         "exon2length",
@@ -114,6 +115,7 @@ class CodonAligner(CommandLineManager):
         "confidence_scores",
         "exon2missing",
         "no_sequence_queries",
+        "species2name",
         "clean_tmp",
     )
 
@@ -157,6 +159,7 @@ class CodonAligner(CommandLineManager):
         seed: Optional[str],
         confidence_scores: Optional[Union[click.File, None]],
         muscle_threads: Optional[int],
+        add_projection_names: Optional[bool],
         twobit2fa: Optional[Union[click.Path, None]],
         tmp_dir: Optional[Union[click.Path, None]],
         keep_tmp: Optional[bool],
@@ -187,6 +190,7 @@ class CodonAligner(CommandLineManager):
         self.show_ancestors: bool = show_ancestors
         self.ancestral_seq_dir: Union[click.Path, None] = path_to_ancestor_files
         self.seed: str = seed
+        self.add_projection_names: bool = add_projection_names
         self.ref_exon_path: Union[str, None] = reference_exons
         self.ref_name: Union[str, None] = reference_name
         if self.ref_exon_path is not None and self.ref_name is None:
@@ -198,6 +202,7 @@ class CodonAligner(CommandLineManager):
         self.confidence_scores: Dict[str, str] = defaultdict(str)
         self.exon2missing: Dict[int, List[str]] = defaultdict(list)
         self.no_sequence_queries: List[str] = []
+        self.species2name: Dict[str, str] = {}
         self.tmp_dir: str = tmp_dir
         if not os.path.exists(tmp_dir):
             self._mkdir(self.tmp_dir)
@@ -296,6 +301,7 @@ class CodonAligner(CommandLineManager):
                     rejected = True
                 projection_names: List[str] = status2proj[highest_status]
             proj: str = min(projection_names, key=lambda x: int(x.split("#")[-1].split(",")[0]))
+            self.species2name[species] = proj
             exons: Dict[str, int] = self.extract_sequences(
                 path, proj, infer_phases=ref_found
             )
@@ -601,12 +607,18 @@ class CodonAligner(CommandLineManager):
                     cmd: str = MAGUS_BEST_PRACTICE.format(*aln_format)
                 self._to_log("Running alignment for exon %s" % exon)
                 self._echo(f"Alignment command: {cmd}")
+                self.regular_alignment(
+                    cmd, 
+                    exon, 
+                    tmp_fasta_in_path,
+                    tmp_fasta_out_path,
+                )
                 self._exec(cmd, ALN_ERROR.format(self.aligner, self.transcript, exon))
                 if self.aligner == MACSE and self.aa_file is None:
                     self._rm(aa_file)
             max_len: int = 0
-            ## parse the output alignment file, record the aligned lines per species
 
+            ## parse the output alignment file, record the aligned lines per species
             with open(tmp_fasta_out_path, "r") as h:
                 species: str = ""
                 seq: str = ""
@@ -626,6 +638,7 @@ class CodonAligner(CommandLineManager):
                     seq += line
                 if seq:
                     self.concatenated_fasta[species] += seq
+                    max_len: int = max(max_len, len(seq))
             ## if MUSCLE was used for sequence alignment, record the column confidence scores in the same fashion
             if self.aligner == MUSCLE:
                 confidence_file: str = tmp_fasta_in_path + ".letterconf.afa"
@@ -678,6 +691,37 @@ class CodonAligner(CommandLineManager):
                 if self.tree is not None:
                     self._rm(tmp_tree_path)
 
+    def regular_alignment(
+        self, 
+        cmd: str, 
+        exon: int,
+        in_fasta: str,
+        out_fasta: str
+    ) -> None:
+        """
+        Staple sequence alignment method for PRANK/MACSE2/MAGUS aligners.
+        If only a single sequence is found in the input file, the whole directory
+
+        Args:
+            cmd: command to execute
+            exon: exon number to align; used in error message
+
+        Returns:
+            None
+
+        Raises:
+            Dies with self._die() if alignment command dies
+        """
+        present_seq_num: int = len(self.exon_seqs[exon])
+        if present_seq_num < 2:
+            self._to_log(
+                "One or less input sequence for exon %s; reporting the alignment as"
+            )
+            copy_cmd: str = f"cp {in_fasta} {out_fasta}"
+            _ = self._exec(copy_cmd, "Copying %s to %s failed" % (in_fasta, out_fasta))
+            return
+        self._exec(cmd, ALN_ERROR.format(self.aligner, self.transcript, exon))
+
     def muscle_alignment(self, seq_input: str, output: str) -> None:
         """
         MUSCLE supports per-column alignment confidence score extraction,
@@ -729,6 +773,10 @@ class CodonAligner(CommandLineManager):
             if species == self.ref_name:
                 species = "REFERENCE"
             header: str = f">{species}"
+            if self.add_projection_names:
+                proj_name: Union[str] = self.species2name.get(species)
+                if proj_name:
+                    header = f"{header}.{proj_name}"
             self.output.write(header + "\n" + seq + "\n")
         if self.aligner == MUSCLE:
             for species, score in self.confidence_scores.items():
@@ -736,6 +784,10 @@ class CodonAligner(CommandLineManager):
                     species = "REFERENCE"
                 header: str = f">{species}"
                 self.confidence_score_file.write(header + "\n" + score + "\n")
+
+    def set_logging(self) -> None:
+        """Overriding logging setup module"""
+        super().set_logging()
 
 
 if __name__ == "__main__":
