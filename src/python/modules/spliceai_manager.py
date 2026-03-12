@@ -116,12 +116,14 @@ class SpliceAiManager(CommandLineManager):
         twobittofa_binary: Optional[click.Path],
         fatotwobit_binary: Optional[click.Path],
         wigtobigwig_binary: Optional[click.Path],
-        project_name: Optional[str],
+        project_name: Optional[Union[str, None]],
         keep_temporary_files: Optional[bool],
         verbose: Optional[bool],
     ) -> None:
         self.v: bool = verbose
-        self.project_name: str = dir_name_by_date("spliceai")
+        self.project_name: str = (
+            project_name if project_name is not None else dir_name_by_date("spliceai")
+        )
         self.output: str = (
             self._abspath(output)
             if output is not None
