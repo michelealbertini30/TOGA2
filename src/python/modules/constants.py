@@ -222,6 +222,7 @@ class Constants:
             "unresolved_clades_file",
             "orth_resolution_report",
             "one2zero_genes",
+            "rejected_at_tree_step",
         ),
         "finalize": (
             "query_annotation_final",
