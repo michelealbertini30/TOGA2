@@ -706,13 +706,33 @@ class CommandLineManager:
             console_handler.setFormatter(FORMATTER)
             self.logger.addHandler(console_handler)
 
-    def _to_log(self, msg: str, level: str = "info"):
-        """
-        Adds the message to the log
+    def _to_log(self, msg: str, level: Optional[str] = "info") -> None:
+        """Logs a message at a given level
+
+        Args:
+            msg: A message to report in the log channel/file
+            level: Logging level to report the message at
+
+        Raises:
+            Returns without logging anything if the current class has no 'logger' attribute
         """
         if not hasattr(self, "logger"):
             return
         getattr(self.logger, level)(msg)
+
+    def _debug(self, msg: str) -> None:
+        """Logs message at DEBUG level
+
+        Args:
+            msg: A message to report in the log channel/file
+
+        Raises:
+            Returns without logging anything if `debug` attribute does not exist 
+        or is set to False or if `logger` attribute does not exist
+        """
+        if not hasattr(self, "debug") or not self.debug:
+            return
+        self._to_log(msg=msg, level="debug")
 
     def _echo(self, msg: str) -> None:
         """Report a line to standard output if verbosity is enabled"""
