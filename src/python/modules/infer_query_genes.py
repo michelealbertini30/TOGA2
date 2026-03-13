@@ -13,8 +13,9 @@ the projections
 # sys.path.extend([LOCATION, PARENT])
 
 from collections import defaultdict
+from contextlib import nullcontext
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Set, TextIO, Tuple, Union
+from typing import Dict, ContextManager, List, Optional, Set, TextIO, Tuple, Union
 
 import click
 import networkx as nx
@@ -250,10 +251,11 @@ class Coords:
 @click.option(
     "--rejection_log",
     "-rl",
-    type=click.File("a", lazy=True),
+    # type=click.File("a", lazy=True),
+    type=click.Path(exists=True),
     default=None,
     show_default=True,
-    help=("A path to to write the discarded entries to"),
+    help=("A path for the discarded entries to be read from/written to"),
 )
 @click.option(
     "--log_file",
@@ -381,19 +383,26 @@ class QueryGeneCollapser(CommandLineManager):
                 "--ref_isoform_file and --ref_bed options do not work separately; "
                 "please provide both files if you want the script to consider reference nested genes"
             )
+
+
         self.proj2exon_cov: Dict[str, float] = {}
         if feature_file:
             self._to_log(
                 "Extracting chain exon coverage from the projection feature file"
             )
             self.parse_feature_file(feature_file)
+
+        self.rejected_items_file: click.Path = rejection_log
+        self.lost_projections: Set[str] = set()
+        self.extract_rejected_items()
+
         self.proj2prob: Dict[str, float] = {}
         self.tr2max_prob: Dict[str, float] = {}
         self.paralog_list: Set[str] = parse_single_column(paralog_list)
         self.proc_pseudogene_list: Set[str] = parse_single_column(
             processed_pseudogene_list
         )
-        self.lost_projections: Set[str] = set()
+
         self.proj2status: Dict[str, str] = {}
         # self.parse_loss_file(loss_summary_file)
         self.parse_transcript_meta(transcript_meta)
@@ -404,7 +413,6 @@ class QueryGeneCollapser(CommandLineManager):
         self.discarded_ppgenes: Set[str] = set()
         self.discarded_ppgenes_file: str = redundant_processed_pseudogenes
         self.discarded_extensions_file: click.File = insufficiently_covered_orthologs
-        self.rejected_items_file: click.File = rejection_log
 
         self.run()
 
@@ -448,6 +456,26 @@ class QueryGeneCollapser(CommandLineManager):
             self.query_transcripts[chrom][name] = annot_entry
         # for chrom in self.query_transcripts:
         #     self.query_transcripts[chrom].sort(key=lambda x: x.start)
+
+    def extract_rejected_items(self) -> None:
+        """Extracts rejected projections from the rejection file
+
+        Args:
+            None
+
+        Returns:
+            None
+        """
+        if self.rejected_items_file is None:
+            return
+        with open(self.rejected_items_file, "r") as h:
+            for line in h:
+                data: List[str] = line.strip().split("\t")
+                if not data or not data[0]:
+                    return
+                if data[0] != PROJECTION:
+                    continue
+                self.lost_projections.add(data[1])
 
     def parse_exon_meta(self, file: TextIO) -> None:
         """
@@ -1096,27 +1124,31 @@ class QueryGeneCollapser(CommandLineManager):
 
     def write_discarded_items(self) -> None:
         """Save discarded items to respective files"""
-        for rej_orth in self.discarded_overextensions:
-            if self.discarded_extensions_file is not None:
-                self.discarded_extensions_file.write(rej_orth + "\n")
-            if self.rejected_items_file is not None:
-                status: str = self.proj2status[rej_orth]
-                orth_rej_line: str = RejectionReasons.REJ_ORTH_REASON.format(rej_orth, status)
-                self.rejected_items_file.write(orth_rej_line + "\n")
-        for rej_par in self.discarded_paralogs:
-            if self.discarded_paralogs_file is not None:
-                self.discarded_paralogs_file.write(rej_par + "\n")
-            if self.rejected_items_file is not None:
-                status: str = self.proj2status[rej_par]
-                par_rej_line: str = RejectionReasons.REJ_PARA_REASON.format(rej_par, status)
-                self.rejected_items_file.write(par_rej_line + "\n")
-        for rej_ppgene in self.discarded_ppgenes:
-            if self.discarded_ppgenes_file is not None:
-                self.discarded_ppgenes_file.write(rej_ppgene + "\n")
-            if self.rejected_items_file is not None:
-                status: str = self.proj2status[rej_ppgene]
-                ppgene_rej_line: str = RejectionReasons.REJ_PPGENE_REASON.format(rej_ppgene, status)
-                self.rejected_items_file.write(ppgene_rej_line + "\n")
+        with self._return_rej_log_handle() as h:
+            for rej_orth in self.discarded_overextensions:
+                if self.discarded_extensions_file is not None:
+                    self.discarded_extensions_file.write(rej_orth + "\n")
+                if self.rejected_items_file is not None:
+                    status: str = self.proj2status[rej_orth]
+                    orth_rej_line: str = RejectionReasons.REJ_ORTH_REASON.format(rej_orth, status)
+                    # self.rejected_items_file.write(orth_rej_line + "\n")
+                    h.write(orth_rej_line + "\n")
+            for rej_par in self.discarded_paralogs:
+                if self.discarded_paralogs_file is not None:
+                    self.discarded_paralogs_file.write(rej_par + "\n")
+                if self.rejected_items_file is not None:
+                    status: str = self.proj2status[rej_par]
+                    par_rej_line: str = RejectionReasons.REJ_PARA_REASON.format(rej_par, status)
+                    # self.rejected_items_file.write(par_rej_line + "\n")
+                    h.write(par_rej_line + "\n")
+            for rej_ppgene in self.discarded_ppgenes:
+                if self.discarded_ppgenes_file is not None:
+                    self.discarded_ppgenes_file.write(rej_ppgene + "\n")
+                if self.rejected_items_file is not None:
+                    status: str = self.proj2status[rej_ppgene]
+                    ppgene_rej_line: str = RejectionReasons.REJ_PPGENE_REASON.format(rej_ppgene, status)
+                    # self.rejected_items_file.write(ppgene_rej_line + "\n")
+                    h.write(ppgene_rej_line + "\n")
 
     def write_redundant_paralogs(self) -> None:
         """Write the names of redundant paralogous projections to a file"""
@@ -1131,6 +1163,22 @@ class QueryGeneCollapser(CommandLineManager):
             return
         for proj in self.discarded_overextensions:
             self.discarded_extensions_file.write(proj + "\n")
+
+    def _return_rej_log_handle(self) -> ContextManager:
+        """Returns context and handle to append the results 
+        to the rejection log if any was provided
+
+        Args:
+            None
+
+        Returns:
+            A writeable context manager if rejection log file was provided, 
+        contextlib.nullcontext object otherwise 
+        """
+        if self.rejected_items_file is not None:
+            return open(self.rejected_items_file, "a")
+        else: 
+            return nullcontext
 
 
 if __name__ == "__main__":
