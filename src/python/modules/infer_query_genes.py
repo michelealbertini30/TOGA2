@@ -458,7 +458,8 @@ class QueryGeneCollapser(CommandLineManager):
         #     self.query_transcripts[chrom].sort(key=lambda x: x.start)
 
     def extract_rejected_items(self) -> None:
-        """Extracts rejected projections from the rejection file
+        """Extracts rejected projections from the rejection file, 
+        recording them as lost projections ignored in the second-best filter
 
         Args:
             None
