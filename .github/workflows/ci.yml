@@ -97,6 +97,7 @@ jobs:
         python3 check_dependencies.py install_third_party
         
         cd postoga/rustools
+        python3 -m pip install maturin
         maturin develop --release
         cd ../..
         
