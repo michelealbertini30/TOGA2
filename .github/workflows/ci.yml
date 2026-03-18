@@ -88,11 +88,13 @@ jobs:
         fi
         
         source toga2/bin/activate
+
+        echo "Checking the current Python version: ${which python3}"
         
-        pip install --upgrade pip setuptools wheel
-        pip install -r requirements.txt
+        python3 -m pip install --upgrade pip setuptools wheel
+        python3 -m pip install -r requirements.txt
         
-        python check_dependencies.py install_third_party
+        python3 check_dependencies.py install_third_party
         
         cd postoga/rustools
         maturin develop --release
@@ -116,8 +118,8 @@ jobs:
         
         source toga2/bin/activate
         
-        pip install --upgrade pip setuptools wheel
-        pip install -r requirements.txt
+        python3 -m pip install --upgrade pip setuptools wheel
+        python3 -m pip install -r requirements.txt
         make build_cython
     
     - name: Build Rust components
