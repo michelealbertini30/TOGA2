@@ -84,6 +84,7 @@ jobs:
     - name: Install Python packages in toga2 venv and postoga installation
       run: |
         if [ ! -d "toga2" ]; then
+          echo "Creating venv"
           python3 -m venv toga2
         fi
         
