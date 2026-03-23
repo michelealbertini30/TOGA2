@@ -1455,6 +1455,15 @@ for executable intronIC instance in $PATH""",
     help="""A path to UCSC twoBitToFa executable; if not set, the executable with this name 
 will be sought for in $PATH""",
 )
+@binary_options.option(
+    "--fatotwobit_binary",
+    type=click.Path(exists=True),
+    metavar="PATH",
+    default=None,
+    show_default=True,
+    help="""A path to UCSC faToTwoBit executable; if not set, the executable with this name 
+will be sought for in $PATH""",
+)
 @cesar_options.option(
     "--min_intron_length_cesar",
     "-cesar_min_l",
@@ -1472,6 +1481,14 @@ will be sought for in $PATH""",
     default=None,
     show_default=False,
     help="A path to save the results to [default: TOGA2_ref_annotation_<hex_code>]",
+)
+@out_options.option(
+    "--prefix",
+    type=str,
+    metavar="STR",
+    default=None,
+    show_default=True,
+    help="A prefix to prepend to the output file names."
 )
 @out_options.option(
     "--keep_temporary",
