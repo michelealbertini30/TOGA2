@@ -12,6 +12,7 @@ class Constants:
     LOCATION = os.path.dirname(__file__)
 
     CONFIG_FORMATS: Tuple[str] = ("json", "tsv", "yaml")
+    YAML: str = "yaml"
 
     BINARIES_TO_CHECK: Dict[str, str] = {
         "bigbedtobed_binary": "bigBedToBed",
@@ -1137,6 +1138,7 @@ TOGA2_SLOTS: Tuple[str, ...] = (
     "keep_tmp",
     "project_name",
     "project_id",
+    "timestamp",
     "v",
     "email",
     "mailx_binary",
