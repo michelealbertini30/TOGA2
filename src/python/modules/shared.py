@@ -290,14 +290,14 @@ class TogaDirConfig:
 
 
 ## Executables
+def timestamp() -> str:
+    """Returns the current date- and timestamp"""
+    return datetime.now().strftime("%H:%M_%d.%m.%y")
+
+
 def dir_name_by_date(prefix: str) -> str:
     """Returns current date and time preceded by a given prefix"""
-    return f"{prefix}_{datetime.now().strftime('%H:%M_%d.%m.%y')}"
-
-
-def timestamp() -> str:
-    """Returns the current time and date"""
-    return datetime.now().strftime("%H:%M_%d.%m.%y")
+    return f"{prefix}_{timestamp()}"
 
 
 def hex_code() -> str:
@@ -694,7 +694,10 @@ class CommandLineManager:
         self.logger: logging.Logger = logging.getLogger(name)
         if self.logger.handlers:
             return
-        self.logger.setLevel(logging.DEBUG)
+        if hasattr(self, "debug") and self.debug:
+            self.logger.setLevel(logging.DEBUG)
+        else:
+            self.logger.setLevel(logging.INFO)
         if hasattr(self, "log_file") and self.log_file:
             file_handler: logging.FileHandler = logging.FileHandler(
                 self.log_file, mode="a", encoding=UTF8
