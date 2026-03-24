@@ -3043,6 +3043,8 @@ class TogaMain(CommandLineManager):
             self.query_annotation_final,
             self.gene_loss_summary,
         ]
+        if self.isoform_file is not None:
+            args.extend(("--isoform_file", self.isoform_file))
         if os.path.exists(self.paralog_report):
             args.extend(("--paralogs", self.paralog_report))
         if os.path.exists(self.processed_pseudogene_report):
