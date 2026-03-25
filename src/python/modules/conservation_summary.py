@@ -78,6 +78,7 @@ def transcript_meta_to_report(
     else:
         with open(file, "r") as h:
             lines: List[str] = h.readlines()
+    has_ppgenes: Set[str] = set()
     ## extract the projection loss statuses
     for line in lines:
         data: List[str] = line.strip().split("\t")
@@ -90,6 +91,8 @@ def transcript_meta_to_report(
         proj2status[proj] = status
         ## do not propagate paralog and ppgene loss status to downstream levels
         if proj in ppgenes or basename in ppgenes:
+            tr2status[tr].add("N")
+            has_ppgenes.add(tr)
             continue
         ## for paralogs, do not count the discarded projections towards the transcript classification
         if proj in paralogs:
@@ -122,6 +125,9 @@ def transcript_meta_to_report(
                 preferred_loss_status: str = proj2status[preferred_proj]
                 tr2status[tr] = preferred_loss_status
                 continue
+        ## if a transcript does not have any projections except for ppgenes, treat it as missing
+        if max_status == "N" and tr in has_ppgenes:
+            max_status = "M"
         tr2status[tr] = max_status
 
     return (proj2status, tr2status, confirmed_missing_paralogs)
