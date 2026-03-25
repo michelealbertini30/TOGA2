@@ -1203,6 +1203,14 @@ when computing sequence intactness features""",
 as a prefix followed by run start date and time to name current runs' 
 log and metadata files""",
 )
+@out_options(
+    "--project_arg_format",
+    "-argf",
+    type=click.Choice(Constants.CONFIG_FORMATS),
+    default=Constants.YAML,
+    show_default=True,
+    help="Project argument file format",
+)
 @out_options.option(
     "--keep_temporary_files",
     "-k",
