@@ -479,11 +479,16 @@ class QueryGeneCollapser(CommandLineManager):
                 self.lost_projections.add(data[1])
 
     def parse_exon_meta(self, file: TextIO) -> None:
-        """
-        Parses query meta. The following data are further used for gene inference:
+        """Parses query meta. The following data are further used for gene inference:
         * exon coordinates;
         * exon loss status;
         * exon presence in the initial chains
+
+        Args:
+            file: a TextIO handle to the opened file
+
+        Returns:
+            None
         """
         annotated_projections: Set[str] = set()
         for line in file:
