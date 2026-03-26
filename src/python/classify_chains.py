@@ -226,6 +226,9 @@ class ChainClassifier(CommandLineManager):
 
         self.run()
 
+    def set_logging(self, log_name: Union[str, None]) -> None:
+        super().set_logging(name=log_name, toga_module="classification")
+
     def _load_model(self, model_path: click.Path) -> Any:
         """
         Uploads XGBoost classification model

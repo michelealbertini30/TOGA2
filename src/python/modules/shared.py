@@ -34,7 +34,7 @@ SLIB_NAME = "chain_bst_lib.so"
 UTF8: str = "utf-8"
 FORMATTER: Formatter = Formatter(
     # "[{asctime}][{filename}] - {levelname}: {message}",
-    "[{asctime}][{module}] - {levelname}: {message}",
+    "[{asctime}][{toga_module}] - {levelname}: {message}",
     style="{",
     datefmt="%Y-%m-%d %H:%M:%S",
 )
@@ -687,16 +687,17 @@ class CommandLineManager:
     further extended to suit particular scripts' needs
     """
 
-    def set_logging(self, name: str = __name__, module: str = None) -> None:
+    def set_logging(self, name: str = __name__, toga_module: str = None) -> None:
         """
         Sets up logging system for a TogaMain instance
         """
         if name is None:
             name = __name__
-        if module is None:
-            module = __name__
+        if toga_module is None:
+            toga_module = "unknown_module"
         self.logger: logging.Logger = logging.getLogger(name)
         if self.logger.handlers:
+            self.logger = logging.LoggerAdapter(self.logger, {"toga_module": toga_module})
             return
         if hasattr(self, "debug") and self.debug:
             self.logger.setLevel(logging.DEBUG)
@@ -712,7 +713,7 @@ class CommandLineManager:
             console_handler: logging.StreamHandler = logging.StreamHandler()
             console_handler.setFormatter(FORMATTER)
             self.logger.addHandler(console_handler)
-        self.logger = logging.LoggerAdapter(self.logger, {"module": module})
+        self.logger = logging.LoggerAdapter(self.logger, {"toga_module": toga_module})
 
     def _to_log(self, msg: str, level: Optional[str] = "info") -> None:
         """Logs a message at a given level

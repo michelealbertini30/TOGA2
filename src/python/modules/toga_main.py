@@ -25,7 +25,6 @@ from .parallel_jobs_manager import (
 from .results_checks import ResultChecker, SanityCheckResult
 from .shared import (
     CommandLineManager,
-    dir_name_by_date,
     hex_dir_name,
     get_upper_dir,
     timestamp,
@@ -40,6 +39,7 @@ PYTHON_DIR: str = get_upper_dir(__file__, 2)
 BIN: str = os.path.join(LOCATION, "bin")
 
 sys.path.append(PYTHON_DIR)
+logging.root.handlers = []
 
 
 class TogaMain(CommandLineManager):
@@ -1067,7 +1067,7 @@ class TogaMain(CommandLineManager):
         #     console_handler: logging.StreamHandler = logging.StreamHandler()
         #     console_handler.setFormatter(Constants.FORMATTER)
         #     self.logger.addHandler(console_handler)
-        super().set_logging(name=__name__, module="toga2")
+        super().set_logging(name=self.project_id, toga_module="toga2")
         self.logger.propagate = False
 
     def _to_log(self, msg: str, level: str = "info") -> None:

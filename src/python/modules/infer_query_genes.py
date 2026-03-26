@@ -416,6 +416,9 @@ class QueryGeneCollapser(CommandLineManager):
 
         self.run()
 
+    def set_logging(self, name: str) -> None:
+        super().set_logging(name=name, toga_module="gene_inference")
+
     def run(self) -> None:
         """
         Major execution method
