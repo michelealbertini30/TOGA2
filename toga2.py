@@ -1203,7 +1203,7 @@ when computing sequence intactness features""",
 as a prefix followed by run start date and time to name current runs' 
 log and metadata files""",
 )
-@out_options(
+@out_options.option(
     "--project_arg_format",
     "-argf",
     type=click.Choice(Constants.CONFIG_FORMATS),
