@@ -33,7 +33,8 @@ SPLIT_JOB_HEADER: Tuple[str, str, str] = ("#!/bin/bash", "set -eu", "set -o pipe
 SLIB_NAME = "chain_bst_lib.so"
 UTF8: str = "utf-8"
 FORMATTER: Formatter = Formatter(
-    "[{asctime}][{filename}] - {levelname}: {message}",
+    # "[{asctime}][{filename}] - {levelname}: {message}",
+    "[{asctime}][{module}] - {levelname}: {message}",
     style="{",
     datefmt="%Y-%m-%d %H:%M:%S",
 )
@@ -310,7 +311,8 @@ def hex_code() -> str:
 
 def hex_dir_name(prefix: str) -> str:
     """A combination of the two functions above"""
-    return f"{dir_name_by_date(prefix)}_{hex_code()}"
+    # return f"{dir_name_by_date(prefix)}_{hex_code()}"
+    return f"{prefix}_{hex_code()}"
 
 
 def die(message: str) -> int:
@@ -685,12 +687,14 @@ class CommandLineManager:
     further extended to suit particular scripts' needs
     """
 
-    def set_logging(self, name: str = __name__) -> None:
+    def set_logging(self, name: str = __name__, module: str = None) -> None:
         """
         Sets up logging system for a TogaMain instance
         """
         if name is None:
             name = __name__
+        if module is None:
+            module = __name__
         self.logger: logging.Logger = logging.getLogger(name)
         if self.logger.handlers:
             return
@@ -708,6 +712,7 @@ class CommandLineManager:
             console_handler: logging.StreamHandler = logging.StreamHandler()
             console_handler.setFormatter(FORMATTER)
             self.logger.addHandler(console_handler)
+        self.logger = logging.LoggerAdapter(self.logger, {"module": module})
 
     def _to_log(self, msg: str, level: Optional[str] = "info") -> None:
         """Logs a message at a given level

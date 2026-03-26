@@ -26,7 +26,7 @@ from .results_checks import ResultChecker, SanityCheckResult
 from .shared import (
     CommandLineManager,
     dir_name_by_date,
-    hex_code,
+    hex_dir_name,
     get_upper_dir,
     timestamp,
 )
@@ -181,7 +181,7 @@ class TogaMain(CommandLineManager):
     ) -> None:
         self.v: bool = verbose
         self.project_name: str = project_name
-        self.project_id: str = hex_code(self.project_name)
+        self.project_id: str = hex_dir_name(self.project_name)
         self.timestamp: str = timestamp()
 
         ## command line-configured attributes
@@ -337,7 +337,7 @@ class TogaMain(CommandLineManager):
         self.parallel_process_names: List[str] = []
 
         self.output: str = self._abspath(
-            output if output else dir_name_by_date("toga2_run")
+            output if output else hex_dir_name("toga2_run")#dir_name_by_date("toga2_run")
         )
         self.keep_tmp: bool = keep_temporary_files
 
@@ -1057,16 +1057,17 @@ class TogaMain(CommandLineManager):
         """
         Sets up logging system for a TogaMain instance
         """
-        self.logger: logging.Logger = logging.getLogger(self.project_id)
-        file_handler: logging.FileHandler = logging.FileHandler(
-            self.log_file, mode="a", encoding=Constants.UTF8
-        )
-        file_handler.setFormatter(Constants.FORMATTER)
-        self.logger.addHandler(file_handler)
-        if self.v:
-            console_handler: logging.StreamHandler = logging.StreamHandler()
-            console_handler.setFormatter(Constants.FORMATTER)
-            self.logger.addHandler(console_handler)
+        # self.logger: logging.Logger = logging.getLogger(self.project_id)
+        # file_handler: logging.FileHandler = logging.FileHandler(
+        #     self.log_file, mode="a", encoding=Constants.UTF8
+        # )
+        # file_handler.setFormatter(Constants.FORMATTER)
+        # self.logger.addHandler(file_handler)
+        # if self.v:
+        #     console_handler: logging.StreamHandler = logging.StreamHandler()
+        #     console_handler.setFormatter(Constants.FORMATTER)
+        #     self.logger.addHandler(console_handler)
+        super().set_logging(name=__name__, module="toga2")
         self.logger.propagate = False
 
     def _to_log(self, msg: str, level: str = "info") -> None:
