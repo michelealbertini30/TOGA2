@@ -1230,6 +1230,14 @@ log and metadata files""",
     "--verbose", "-v", is_flag=True, default=False, help="Control logging verbosity"
 )
 @verbosity_options.option(
+    "--debug",
+    is_flag=True,
+    default=False,
+    show_default=True,
+    help="""Increase logging verbosity by logging debugging messages. 
+Automatically enables \"--verbose\" flag""",
+)
+@verbosity_options.option(
     "--email",
     type=str,
     metavar="EMAIL_ADDRESS",

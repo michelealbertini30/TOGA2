@@ -170,6 +170,7 @@ class TogaMain(CommandLineManager):
         project_arg_format: Optional[str],
         keep_temporary_files: Optional[bool],
         verbose: Optional[bool],
+        debug: Optional[bool],
         email: Optional[Union[str, None]],
         mailx_binary: Optional[Union[str, None]],
         fatotwobit_binary: Optional[Union[os.PathLike, None]],
@@ -179,7 +180,8 @@ class TogaMain(CommandLineManager):
         ixixx_binary: Optional[Union[os.PathLike, None]],
         # version: Optional[bool],
     ) -> None:
-        self.v: bool = verbose
+        self.v: bool = verbose | debug
+        self.debug: bool = debug
         self.project_name: str = project_name
         self.project_id: str = hex_dir_name(self.project_name)
         self.timestamp: str = timestamp()
