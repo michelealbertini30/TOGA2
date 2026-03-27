@@ -112,7 +112,7 @@ class Constants:
     DEFAULT_LOSS_SYMBOLS: Tuple[str, ...] = ("FI", "I", "PI", "UL")
 
     FORMATTER: Formatter = Formatter(
-        "[{asctime}][{filename}] - {levelname}: {message}",
+        "[{asctime}][{toga_module}] - {levelname}: {message}",
         style="{",
         datefmt="%Y-%m-%d %H:%M:%S",
     )
