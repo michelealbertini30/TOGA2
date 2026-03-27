@@ -181,7 +181,7 @@ class QueryGeneNamer(CommandLineManager):
     ) -> None:
         self.v: bool = verbose
         self.log_file: Union[str, None] = log_file
-        self.set_logging(log_name)
+        self.set_logging(name=log_name, toga_module="query_gene_naming")
 
         self._to_log("Creating output directory for orthology wrap-up")
         self._mkdir(output_dir)

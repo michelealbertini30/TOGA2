@@ -108,7 +108,7 @@ class TwoBitConverter(CommandLineManager):
         verbose: Optional[bool],
     ) -> None:
         self.v: bool = verbose
-        self.set_logging(log_name)
+        self.set_logging(name=log_name, toga_module="fasta2twobit")
         self.fa2twobit: Union[str, None] = None
         self.set_twobit_path(fa2twobit)
 

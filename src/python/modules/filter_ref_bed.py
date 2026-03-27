@@ -124,7 +124,7 @@ class AnnotationFilter(CommandLineManager):
         verbose: Optional[bool],
     ) -> None:
         self.v: bool = verbose
-        self.set_logging(log_name)
+        self.set_logging(name=log_name, toga_module="ref_bed_filter")
 
         self.ref_bed: click.File = ref_bed
         self.output: click.File = output

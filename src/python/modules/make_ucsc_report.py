@@ -233,7 +233,7 @@ class BigBedProducer(CommandLineManager):
     ) -> None:
         self.v: bool = verbose
         self.log_file: click.Path = log_file
-        self.set_logging(log_name)
+        self.set_logging(name=log_name, toga_module="ucsc_track")
 
         # self.prefix: str = prefix
         self.longest_word: int = 0

@@ -93,7 +93,7 @@ class PseudogeneTrackBuilder(CommandLineManager):
         verbose: Optional[bool],
     ) -> None:
         self.v: bool = verbose
-        self.set_logging()
+        self.set_logging(name=log_name, toga_module="ppgene_track")
 
         self._to_log("Initializing pseudogene track builder")
         self.output: TextIO = output
