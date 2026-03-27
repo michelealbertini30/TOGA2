@@ -48,7 +48,7 @@ class Toga2ConfiguredLauncher(CommandLineManager):
 
         sys.path.append(LOCATION)
         from __version__ import __version__
-        self.version == __version__
+        self.version: str = __version__
         sys.path.remove(LOCATION)
 
     def run(self) -> Dict[str, str]:
