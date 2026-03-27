@@ -1821,8 +1821,6 @@ def spliceai(**kwargs) -> None:
        .JMML.     `"bmmd"'     `"bmmmdPY .AMA.   .AMMA.    .JMML..JMML.
 
     spliceai - Predict putative splice sites in the query assembly with SpliceAI\n
-    NOTE: This mode is currently in early access The results might differ from those produced
-    by the code used for TOGA2 companion dataset preparation.
     If you notice any substantial differences from the expected results, pleae contact TOGA2 developer team.\n
     \n
     TOGA2 uses SpliceAI predictions for the query genome to improve exon annotation and record
