@@ -285,6 +285,15 @@ class Coords:
     show_default=True,
     help="Controls execution verbosity",
 )
+@click.option(
+    "--debug",
+    is_flag=True,
+    default=False,
+    show_default=True,
+    help=""""Increases execution verbosity for debugging purpose; 
+automatically set the --verbose flag on"""
+)
+
 class QueryGeneCollapser(CommandLineManager):
     __slots__ = [
         "query_transcripts",
@@ -344,11 +353,13 @@ class QueryGeneCollapser(CommandLineManager):
         rejection_log: Optional[Union[click.File, None]],
         log_file: Optional[Union[click.Path, None]],
         log_name: Optional[str],
-        verbose: bool,
+        verbose: Optional[bool],
+        debug: Optional[bool]
     ) -> None:
         self.v: bool = verbose
+        self.debug: bool = debug
         self.log_file: str = log_file
-        self.set_logging(log_name)
+        self.set_logging(name=log_name, toga_module="gene_inference")
 
         self._to_log("Initialising QueryGeneCollapser")
         if (feature_file is None) != (orthology_probabilities is None):
@@ -416,8 +427,8 @@ class QueryGeneCollapser(CommandLineManager):
 
         self.run()
 
-    def set_logging(self, name: str) -> None:
-        super().set_logging(name=name, toga_module="gene_inference")
+    # def set_logging(self, name: str) -> None:
+    #     super().set_logging(name=name, toga_module="gene_inference")
 
     def run(self) -> None:
         """
@@ -699,7 +710,7 @@ class QueryGeneCollapser(CommandLineManager):
             cds_end: int = int(data[7])
             name: str = data[3]
             if name not in self.ref_isoform2gene:
-                self._to_log(
+                self._die(
                     "Isoform %s is absent from the reference isoform file" % name
                 )
             chrom2tr_coords[chrom].append((name, cds_start, cds_end))
@@ -832,7 +843,7 @@ class QueryGeneCollapser(CommandLineManager):
                         if gene_in in self.intersecting_ref_genes.get(
                             gene_out, []
                         ) or gene_out in self.intersecting_ref_genes.get(gene_in, []):
-                            self._to_log(
+                            self._debug(
                                 (
                                     "Projections %s and %s will not be merged "
                                     "since genes %s and %s overlap in the reference"
@@ -1146,6 +1157,7 @@ class QueryGeneCollapser(CommandLineManager):
                 strand = "+" if strand else "-"
                 out_str: str = f"{chrom}\t{start}\t{stop}\t{name}\t0\t{strand}"
                 self.bed6_output.write(out_str + "\n")
+        self._debug("Number of query genes inferred: %i" % i)
 
     def write_discarded_items(self) -> None:
         """Save discarded items to respective files"""

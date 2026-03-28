@@ -2574,6 +2574,8 @@ class TogaMain(CommandLineManager):
             args.extend(("-p", self.paralog_report))
         if os.path.exists(self.processed_pseudogene_report):
             args.extend(("-pp", self.processed_pseudogene_report))
+        if self.debug:
+            args.append("--debug")
         QueryGeneCollapser(args, standalone_mode=False)
         if os.path.exists(self.gene_inference_rejection_log):
             rej_aggr_cmd: str = (
