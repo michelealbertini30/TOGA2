@@ -607,6 +607,23 @@ def parse_one_column(file: Union[str, TextIO]) -> List[str]:
             return list(map(lambda x: x.strip("\n\r\t"), h.readlines()))
 
 
+def read_tab(file: str) -> Iterable[str]:
+    """Read a TSV file line by line, yield a generator of field-split lines"""
+    if type(file) is str:
+        with open(file, "r") as h:
+            for line in h:
+                data: List[str] = line.strip().split("\t")
+                if not data or not data[0]:
+                    continue
+                yield data
+    else:
+        for line in file:
+            data: List[str] = line.strip().split("\t")
+            if not data or not data[0]:
+                continue
+            yield data
+
+
 def reverse_complement(seq: str) -> str:
     """Returns a reverse complement of a standard alphabet nucleotide sequence"""
     out_seq: str = "".join([COMPLEMENT[x] for x in seq[::-1]])

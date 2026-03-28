@@ -7,10 +7,10 @@ import os
 import sys
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Dict, Iterable, List, Optional, Set, Tuple, Union
+from typing import Dict, List, Optional, Set, Tuple, Union
 
 from .constants import Constants
-from .shared import CommandLineManager, parse_single_column
+from .shared import CommandLineManager, parse_single_column, read_tab
 
 ORTH_PROB_HEADER: str = "transcript"
 ORTH_PROB_FIELDS: int = 3
@@ -52,6 +52,46 @@ EXPECTED_OUTPUT_FILE_NAMES: Dict[str, str] = {
 }
 
 BREAK_LINE: str = "#" * 100
+
+MAIN_HEADER: str = """{br}
+#### TOGA2 summary
+{br}
+TOGA2 annotated {num_genes} genes and {num_retro} retrogenes in the query genome.
+In addition, TOGA2 identified {num_lost} genes classified as lost and {num_missing} genes classified as missing in the query.
+Out of {ref_gene_num} reference genes, V (v%) have at least one ortholog and U (u%) have only paralogs in the query genome.
+
+SINGLELINESUMMARY   query   {num_genes} {num_retro} {num_lost}	{num_missing}	V	U
+
+This data set was generated with TOGA2 version v{version} (git commit XXXXXXX) and these settings:
+Reference genome: {ref_2bit}
+Query genome: {query_2bit}
+Genome alignment chain file: {chains}
+Reference annotation file: {ref_annot}
+Output directory: {output}
+Isoforms file: {isoforms}
+
+For questions, please check whether the issue has already been addressed at https://github.com/hillerlab/TOGA2/issues.
+If not, please open a new issue.
+If you use these data, please cite: 
+Yury V. Malovichko et al. "Accurate, comprehensive gene annotation and ortholog identification across thousands of vertebrate genomes with TOGA2", in preparation
+
+
+
+"""
+
+DETAILED_HEADER: str = """{br}
+#### Detailed TOGA2 summary
+{br}
+The detailed summary lists information about the orthology classification step, statistics of projections, transcripts and genes,
+and details on the orthology classification.
+{warnings}
+{br}
+
+
+"""
+
+
+
 SUMMARY_BOILERPLATE: str = """
 {br}
 #### TOGA2 run summary
@@ -206,16 +246,6 @@ def to_perc(numerator: int, denominator: int) -> float:
     and rounds to third digit after the dot
     """
     return 0.0 if denominator == 0 else round(numerator / denominator * 100, 3)
-
-
-def read_tab(file: str) -> Iterable[str]:
-    """Read a TSV file line by line, yield a generator of field-split lines"""
-    with open(file, "r") as h:
-        for line in h:
-            data: List[str] = line.strip().split("\t")
-            if not data or not data[0]:
-                continue
-            yield data
 
 
 class ResultChecker(CommandLineManager):
@@ -1100,6 +1130,12 @@ class LogParserForSummary(CommandLineManager):
         """Main args extraction method"""
         if self.format == "tsv":
             args: Dict[str, Union[str, None]] = self.parse_tsv()
+        elif self.format == "yaml":
+            args: Dict[str, Union[str, int, float, None]] = self.parse_yaml()
+        elif self.format == "json":
+            args: Dict[str, Union[str, None]] = self.parse_json()
+        else:
+            self._die("Inappropriate log file format ")
 
         return args
 
