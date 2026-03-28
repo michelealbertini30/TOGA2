@@ -7,6 +7,7 @@ prepares a complete UCSC BigBed report file
 
 import os
 from collections import defaultdict
+from get_names_from_bed import BedNameRetriever
 from typing import Any, Dict, List, Optional, Set, TextIO, Tuple, Union
 
 import click
@@ -385,10 +386,11 @@ class BigBedProducer(CommandLineManager):
         _ = self._exec(bigbed_cmd, "bedToBigBed failed")
         self._to_log("BigBed file successfully created")
         self._to_log("Creating BigBed indices")
-        bed_ix_cmd: str = (
-            f"{MAKE_IX_SCRIPT} {self.out_bed_file} | sort -u > {self.bed_index}"
-        )
-        _ = self._exec(bed_ix_cmd, "BED file indexing failed")
+        # bed_ix_cmd: str = (
+        #     f"{MAKE_IX_SCRIPT} {self.out_bed_file} | sort -u > {self.bed_index}"
+        # )
+        # _ = self._exec(bed_ix_cmd, "BED file indexing failed")
+        BedNameRetriever({"input": self.out_bed_file, "output": self.bed_index})
         bigbed_ix_cmd: str = (
             f"{self.ixixx_binary} {self.bed_index} {self.bigbed_index} {self.bigbed_ixx} "
             f"-maxWordLength={self.longest_word}"
