@@ -172,14 +172,18 @@ class LossFileFilter(CommandLineManager):
                     and base_proj_name(data[1]) not in projections
                 ):
                     continue
+                tr: str = get_proj2trans(data[1])[0]
                 if data[1] in self.paralogs:
                     data[1] += "#paralog"
                     line = "\t".join(data) + "\n"
+                    tr2best_loss[tr] = "PG"
                 elif data[1] in self.ppgenes:
                     data[1] += "#retro"
                     line = "\t".join(data) + "\n"
+                    tr2best_loss[tr] = max(
+                        (tr2best_loss.get(tr, "N"), "M"), key=lambda x: CLASS_TO_NUM[x]
+                    )
                 else:
-                    tr: str = get_proj2trans(data[1])[0]
                     tr2best_loss[tr] = max(
                         (tr2best_loss.get(tr, "N"), data[2]), key=lambda x: CLASS_TO_NUM[x]
                     )
@@ -210,6 +214,8 @@ class LossFileFilter(CommandLineManager):
             if status in MISSING_STATS:
                 self.loss_out.write(f"{GENE}\t{gene}\t{status}\n")
                 continue
+            if gene not in gene2trs:
+                print(f"GENE NOT IN THE MAPPIG: {gene}")
             max_tr_stat: str = max(
                 [tr2loss.get(x) for x in gene2trs.get(gene, [])], key=lambda x: CLASS_TO_NUM[x]
             )
