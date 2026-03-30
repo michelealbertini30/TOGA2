@@ -6,3 +6,4 @@ dependencies:
     - python>=3.12, <3.13.0
     - nextflow>=25.10.0
     - rust>=1.90.0
+    - gcc<9.0.0
