@@ -7,11 +7,19 @@ import os
 import sys
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Set, Tuple, Union
+from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
+from .cesar_wrapper_constants import CLASS_TO_NUM
 from .constants import Constants
-from .shared import CommandLineManager, parse_single_column, read_tab
+from .shared import (
+    CommandLineManager,
+    get_proj2trans,
+    get_upper_dir,
+    parse_single_column,
+    read_tab,
+)
 
+LOCATION: str = get_upper_dir(__file__, 4)
 ORTH_PROB_HEADER: str = "transcript"
 ORTH_PROB_FIELDS: int = 3
 MEM_FILE_HEADER: str = "transcript"
@@ -51,6 +59,31 @@ EXPECTED_OUTPUT_FILE_NAMES: Dict[str, str] = {
     "orthology_classification": "orthology_classification.tsv",
 }
 
+REF_2BIT: str = "ref_2bit"
+QUERY_2BIT: str = "query_2bit"
+CHAIN_FILE: str = "chain_file"
+REF_ANNOTATION: str = "ref_annotation"
+ORTH_THRESH: str = "orthology_threshold"
+ACCEPTED_CLASSES: str = "accepted_loss_symbols"
+ISOFORM_FILE: str = "isoform_file"
+OUT_DIR: str = "output"
+U12_FILE: str = "u12_file"
+SPLICEAI_DIR: str = "spliceai_dir"
+MANDATORY_PATH_ARGS: Tuple[str, ...] = (
+    REF_2BIT,
+    QUERY_2BIT,
+    CHAIN_FILE,
+    REF_ANNOTATION,
+    OUT_DIR,
+)
+MANDATORY_ARGS: Tuple[str, ...] = (*MANDATORY_PATH_ARGS, ORTH_THRESH, ACCEPTED_CLASSES,)
+ALL_ARGS: Tuple[str, ...] = (
+    *MANDATORY_ARGS,
+    ISOFORM_FILE,
+    U12_FILE,
+    SPLICEAI_DIR,
+)
+
 BREAK_LINE: str = "#" * 100
 
 MAIN_HEADER: str = """{br}
@@ -58,24 +91,26 @@ MAIN_HEADER: str = """{br}
 {br}
 TOGA2 annotated {num_genes} genes and {num_retro} retrogenes in the query genome.
 In addition, TOGA2 identified {num_lost} genes classified as lost and {num_missing} genes classified as missing in the query.
-Out of {ref_gene_num} reference genes, V (v%) have at least one ortholog and U (u%) have only paralogs in the query genome.
 
-SINGLELINESUMMARY   query   {num_genes} {num_retro} {num_lost}	{num_missing}	V	U
+Out of W reference genes, {num_with_func_orth} ({perc_with_func_orth}%) have at least one potentially functional ortholog, while for {num_with_func_para} ({perc_with_func_para}%) genes, TOGA2 identified only potentially functional paralogs in the query genome.
 
-This data set was generated with TOGA2 version v{version} (git commit XXXXXXX) and these settings:
-Reference genome: {ref_2bit}
-Query genome: {query_2bit}
-Genome alignment chain file: {chains}
-Reference annotation file: {ref_annot}
-Output directory: {output}
-Isoforms file: {isoforms}
+#HEADER	QueryAssembly	no. annotated query genes	no. query retrogenes	no. lost genes in query	no. missing genes in query	no. ref genes with potentially functional orthologs	no. ref genes with potentially functional paralogs
+#SINGLELINESUMMARY   query {num_genes} {num_retro} {num_lost}  {num_missing}   {num_with_func_orth} {num_with_func_para}
 
-For questions, please check whether the issue has already been addressed at https://github.com/hillerlab/TOGA2/issues.
-If not, please open a new issue.
+This data set was generated with TOGA2 version {version} (git commit {commit}) and the following input files:
+* Reference genome: {ref_2bit}
+* Query genome: {query_2bit}
+* Genome alignment chain file: {chains}
+* Reference annotation file: {ref_annot}
+* Output directory: {output}
+* Isoforms file: {isoforms}
+* U12/non-canonical U2 intron file: {u12_file}
+* SpliceAI query directory: {spliceai_dir}
+
+For questions, please check whether the issue has already been addressed at https://github.com/hillerlab/TOGA2/issues. If not, please open a new issue.
+
 If you use these data, please cite: 
 Yury V. Malovichko et al. "Accurate, comprehensive gene annotation and ortholog identification across thousands of vertebrate genomes with TOGA2", in preparation
-
-
 
 """
 
@@ -83,13 +118,25 @@ DETAILED_HEADER: str = """{br}
 #### Detailed TOGA2 summary
 {br}
 The detailed summary lists information about the orthology classification step, statistics of projections, transcripts and genes,
-and details on the orthology classification.
-{warnings}
+and details on the orthology classification.{warnings}"""
+
+
+_SUMMARY_BOILERPLATE: str = """{header}
+
+{detailed_header}
+
 {br}
 
+{orthology_class_report}
 
+{br}
+
+{loss_summary}
+
+{br}
+
+{orthology_res_report}
 """
-
 
 
 SUMMARY_BOILERPLATE: str = """
@@ -246,6 +293,22 @@ def to_perc(numerator: int, denominator: int) -> float:
     and rounds to third digit after the dot
     """
     return 0.0 if denominator == 0 else round(numerator / denominator * 100, 3)
+
+
+def arg_or_na(arg: Union[Any, None]) -> str:
+    """Returns the input argument or N/A if argument was not provided
+
+    Args:
+        arg: A TOGA2 argument to check
+
+    Returns:
+        'N/A' if argument value is None or an empty string, the initial value otherwise
+    """
+    if isinstance(arg, (int, float, bool, complex)):
+        return str(arg)
+    if not arg:
+        return "N/A"
+    return str(arg)
 
 
 class ResultChecker(CommandLineManager):
@@ -935,181 +998,6 @@ class ResultChecker(CommandLineManager):
         )
         return result
 
-    def summary(
-        self, ref_2bit: str, query_2bit: str, chains: str, ref_annot: str, output: str
-    ) -> str:
-        """Summarizes most crucial TOGA2 result statistics"""
-        isoforms_line: str = (
-            ISOFORMS_LINE.format(self.isoforms)
-            if self.isoforms is not None
-            else ISOFORMS_CAVEAT
-        )
-        ## 1) orthology classification
-        if self.isoforms is not None:
-            gene_level_attrs: List[Union[int, float]] = [
-                self.gene_num_orth,
-                self.gene_fr_orth,
-                self.gene_num_o2o,
-                self.gene_fr_o2o,
-                self.gene_num_no_orth,
-                self.gene_fr_no_orth,
-            ]
-        else:
-            gene_level_attrs: List[Union[int, float]] = [
-                self.num_orth,
-                self.fr_orth,
-                self.num_o2o,
-                self.fr_o2o,
-                self.num_no_orth,
-                self.fr_no_orth,
-            ]
-        orth_class: str = CLASSIFICATION_BOILERPLATE.format(
-            len(self.all_initial_transcripts),
-            self.num_orth,
-            self.fr_orth,
-            self.num_o2o,
-            self.fr_o2o,
-            self.num_no_orth,
-            self.fr_no_orth,
-            self.num_no_chains,
-            self.fr_no_chains,
-            self.num_ppgene,
-            *gene_level_attrs,
-        )
-
-        ## 2) gene loss summary
-        num_proj: str = sum(self.proj2loss.values())
-        proj2fr: Dict[str, float] = {
-            x: to_perc(y, num_proj) for x, y in self.proj2loss.items()
-        }
-        num_proj_present: int = sum(
-            y for x, y in self.proj2loss.items() if x in self.intact_classes
-        )
-        fr_proj_present: float = to_perc(num_proj_present, num_proj)
-        num_proj_missing: int = num_proj - num_proj_present
-        fr_proj_missing: float = 100.0 - fr_proj_present
-        num_tr: int = sum(self.tr2loss.values())
-        tr2fr: Dict[str, float] = {
-            x: to_perc(y, num_tr) for x, y in self.tr2loss.items()
-        }
-        num_tr_present: int = sum(
-            y for x, y in self.tr2loss.items() if x in self.intact_classes
-        )
-        fr_tr_present: float = to_perc(num_tr_present, num_tr)
-        num_tr_missing: int = num_tr - num_tr_present
-        fr_tr_missing: float = 100.0 - fr_tr_present
-        if self.isoforms is not None:
-            num_gene: str = sum(self.gene2loss.values())
-            gene2fr: Dict[str, float] = {
-                x: to_perc(y, num_gene) for x, y in self.gene2loss.items()
-            }
-            num_gene_present: int = sum(
-                y for x, y in self.gene2loss.items() if x in self.intact_classes
-            )
-            fr_gene_present: float = to_perc(num_gene_present, num_gene)
-            num_gene_missing: int = num_gene - num_gene_present
-            fr_gene_missing: float = 100.0 - fr_gene_present
-        else:
-            gene2fr: Dict[str, float] = tr2fr
-            num_gene_present: int = num_tr_present
-            fr_gene_present: float = fr_tr_present
-            num_gene_missing: int = num_tr_missing
-            fr_gene_missing: float = fr_tr_missing
-        loss_summary: str = LOSS_SUMMARY_BOILERPLATE.format(
-            ",".join(self.intact_classes),
-            self.proj2loss.get("FI", 0),
-            proj2fr.get("FI", 0.0),
-            self.proj2loss.get("I", 0),
-            proj2fr.get("I", 0.0),
-            self.proj2loss.get("PI", 0),
-            proj2fr.get("PI", 0.0),
-            self.proj2loss.get("UL", 0),
-            proj2fr.get("UL", 0.0),
-            self.proj2loss.get("L", 0),
-            proj2fr.get("L", 0.0),
-            self.proj2loss.get("M", 0),
-            proj2fr.get("M", 0.0),
-            num_proj_present,
-            fr_proj_present,
-            num_proj_missing,
-            fr_proj_missing,
-            self.tr2loss.get("FI", 0),
-            tr2fr.get("FI", 0.0),
-            self.tr2loss.get("I", 0),
-            tr2fr.get("I", 0.0),
-            self.tr2loss.get("PI", 0),
-            tr2fr.get("PI", 0.0),
-            self.tr2loss.get("UL", 0),
-            tr2fr.get("UL", 0.0),
-            self.tr2loss.get("L", 0),
-            tr2fr.get("L", 0.0),
-            self.tr2loss.get("M", 0),
-            tr2fr.get("M", 0.0),
-            num_tr_present,
-            fr_tr_present,
-            num_tr_missing,
-            fr_tr_missing,
-            self.gene2loss.get("FI", 0),
-            gene2fr.get("FI", 0.0),
-            self.gene2loss.get("I", 0),
-            gene2fr.get("I", 0.0),
-            self.gene2loss.get("PI", 0),
-            gene2fr.get("PI", 0.0),
-            self.gene2loss.get("UL", 0),
-            gene2fr.get("UL", 0.0),
-            self.gene2loss.get("L", 0),
-            gene2fr.get("L", 0.0),
-            self.gene2loss.get("M", 0),
-            gene2fr.get("M", 0.0),
-            num_gene_present,
-            fr_gene_present,
-            num_gene_missing,
-            fr_gene_missing,
-        )
-
-        ## 3) orthology resoltion
-        num_ref_genes: int = sum(self.orth_status_counter.values())
-        query_orth, query_orphan = self._get_query_gene_num()
-        num_query_genes: int = query_orth + query_orphan
-        fr_orth_query: float = to_perc(query_orth, num_query_genes)
-        fr_orphan_query: float = 100.0 - fr_orth_query
-        orth2fr: Dict[str, float] = {
-            x: to_perc(y, num_ref_genes) for x, y in self.orth_status_counter.items()
-        }
-        orth_summary: str = ORTHOLOGY_BOILERPLATE.format(
-            num_ref_genes,
-            num_query_genes,
-            query_orth,
-            fr_orth_query,
-            query_orphan,
-            fr_orphan_query,
-            self.orth_status_counter.get("one2one", 0),
-            orth2fr.get("one2one", 0.0),
-            self.orth_status_counter.get("one2many", 0),
-            orth2fr.get("one2many", 0.0),
-            self.orth_status_counter.get("many2one", 0),
-            orth2fr.get("many2one", 0.0),
-            self.orth_status_counter.get("many2many", 0),
-            orth2fr.get("many2many", 0.0),
-            self.orth_status_counter.get("one2zero", 0),
-            orth2fr.get("one2zero", 0.0),
-        )
-
-        summary: str = SUMMARY_BOILERPLATE.format(
-            br=BREAK_LINE,
-            ref_2bit=ref_2bit,
-            query_2bit=query_2bit,
-            chains=chains,
-            ref_annot=ref_annot,
-            output=output,
-            isoforms_line=isoforms_line,
-            orthology_class_report=orth_class,
-            loss_summary=loss_summary,
-            orthology_res_report=orth_summary,
-        )
-
-        return summary
-
 
 class LogParserForSummary(CommandLineManager):
     """
@@ -1135,24 +1023,15 @@ class LogParserForSummary(CommandLineManager):
         elif self.format == "json":
             args: Dict[str, Union[str, None]] = self.parse_json()
         else:
-            self._die("Inappropriate log file format ")
+            self._die("Inappropriate log file format")
 
         return args
 
     def parse_tsv(self) -> Dict[str, Union[str, None]]:
         """Extracts args from the TSV-format (legacy) project arguments file"""
-        args: Dict[str] = {
-            "ref_2bit": None,
-            "query_2bit": None,
-            "chain_file": None,
-            "ref_annotation": None,
-            "orth_prob_threshold": None,
-            "accepted_classes": None,
-            "output_dir": None,
-        }
-        isoform_file: Union[os.PathLike, None] = None
+        args: Dict[str, Union[str, None]] = {arg: None for arg in ALL_ARGS}
         for data in read_tab(self.args_file):
-            if data[0] == "ref_2bit":
+            if data[0] == REF_2BIT:
                 if not os.path.exists(data[1]):
                     self._to_log(
                         (
@@ -1162,8 +1041,8 @@ class LogParserForSummary(CommandLineManager):
                         % data[1],
                         "warning",
                     )
-                args["ref_2bit"] = data[1]
-            if data[0] == "query_2bit":
+                args[REF_2BIT] = data[1]
+            if data[0] == QUERY_2BIT:
                 if not os.path.exists(data[1]):
                     self._to_log(
                         (
@@ -1173,8 +1052,8 @@ class LogParserForSummary(CommandLineManager):
                         % data[1],
                         "warning",
                     )
-                args["query_2bit"] = data[1]
-            if data[0] == "chain_file":
+                args[QUERY_2BIT] = data[1]
+            if data[0] == CHAIN_FILE:
                 if not os.path.exists(data[1]):
                     self._to_log(
                         (
@@ -1184,8 +1063,8 @@ class LogParserForSummary(CommandLineManager):
                         % data[1],
                         "warning",
                     )
-                args["chain_file"] = data[1]
-            if data[0] == "ref_annotation":
+                args[CHAIN_FILE] = data[1]
+            if data[0] == REF_ANNOTATION:
                 if not os.path.exists(data[1]):
                     self._die(
                         (
@@ -1194,8 +1073,8 @@ class LogParserForSummary(CommandLineManager):
                         )
                         % data[1]
                     )
-                args["ref_annotation"] = data[1]
-            if data[0] == "isoform_file":
+                args[REF_ANNOTATION] = data[1]
+            if data[0] == ISOFORM_FILE:
                 if data[1] == NONE:
                     continue
                 elif not os.path.exists(data[1]):
@@ -1206,24 +1085,52 @@ class LogParserForSummary(CommandLineManager):
                         )
                         % data[1]
                     )
-                isoform_file = data[1]
-            if data[0] == "orthology_threshold":
+                args[ISOFORM_FILE] = data[1]
+            if data[0] == U12_FILE:
+                if data[1] == NONE:
+                    continue
+                if not os.path.exists(data[1]):
+                    self._die(
+                        (
+                            "Reference U12 intron file %s does not exist or "
+                            "has been deleted since the run passed"
+                        ) % data[1]
+                    )
+                args[U12_FILE] = data[1]
+            if data[0] == SPLICEAI_DIR:
+                if data[1] == NONE:
+                    continue
+                if not os.path.exists(data[1]):
+                    self._die(
+                        (
+                            "Query SpliceAI annotation directory %s does not exist or "
+                            "has been deleted since the run passed"
+                        ) % data[1]
+                    )
+                args[SPLICEAI_DIR] = data[1]
+            if data[0] == ORTH_THRESH:
                 try:
-                    args["orth_prob_threshold"] = float(data[1])
+                    args[ORTH_THRESH] = float(data[1])
                 except ValueError:
                     self._die(
-                        "Orthology probability threshold is not a valid floating point number" 
+                        "Orthology probability threshold is not a valid floating point number"
                         % data[1]
                     )
-            if data[0] == "accepted_loss_symbols":
-                accepted_classes: List[str] = [x for x in data[1].split(",") if x]
-                if any(x not in Constants.ALL_LOSS_SYMBOLS for x in accepted_classes):
+            if data[0] == ACCEPTED_CLASSES:
+                accepted_loss_symbols: List[str] = [x for x in data[1].split(",") if x]
+                if any(x not in Constants.ALL_LOSS_SYMBOLS for x in accepted_loss_symbols):
                     self._die(
-                        "\"accepted_loss_symbols\" contains inappropriate loss symbols: %s" 
-                        % ", ".join([x for x in accepted_classes if x not in Constants.ALL_LOSS_SYMBOLS])
+                        '"accepted_loss_symbols" contains inappropriate loss symbols: %s'
+                        % ", ".join(
+                            [
+                                x
+                                for x in accepted_loss_symbols
+                                if x not in Constants.ALL_LOSS_SYMBOLS
+                            ]
+                        )
                     )
-                args["accepted_classes"] = data[1]
-            if data[0] == "output":
+                args[ACCEPTED_CLASSES] = data[1]
+            if data[0] == OUT_DIR:
                 if not os.path.exists(data[1]):
                     self._die(
                         (
@@ -1232,19 +1139,20 @@ class LogParserForSummary(CommandLineManager):
                         )
                         % data[1]
                     )
-                args["output_dir"] = data[1]
+                args[OUT_DIR] = data[1]
                 for attr, expected_name in EXPECTED_OUTPUT_FILE_NAMES.items():
                     expected_path: str = os.path.join(data[1], expected_name)
                     if not os.path.exists(expected_path):
                         self._die("Output file %s does not exist")
                     args[attr] = expected_path
-        missing_args: List[str] = [x for x, y in args.items() if y is None]
+        missing_args: List[str] = [
+            x for x, y in args.items() if y is None and x in MANDATORY_ARGS
+        ]
         if missing_args:
             self._die(
                 "The following arguments are missing from the project argument file: %s"
                 % ", ".join(missing_args)
             )
-        args["isoform_file"] = isoform_file
         args["expanded"] = self.expanded
         return args
 
@@ -1254,7 +1162,55 @@ class LogParserForSummary(CommandLineManager):
         WARNING: This is a method stub; the method's code will be expanded
         once additional project_args formats are implemented
         """
-        pass
+        import json
+        all_args: Dict[str, Union[str, Dict[any]]] = json.load(self.args_file)
+        args: Dict[str, Union[str, None]] = {arg: None for arg in ALL_ARGS}
+        for arg in ALL_ARGS:
+            value: Union[str, None] = all_args.get(arg, None)
+            if value is None:
+                continue
+            if arg in MANDATORY_ARGS:
+                if arg in MANDATORY_PATH_ARGS:
+                    if not os.path.exists(value):
+                        self._die(
+                            (
+                                "Mandatory input file/directory %s does not exist or "
+                                "has been deleted since the run passed"
+                            ) % value
+                        )
+                elif arg == ORTH_THRESH:
+                    try:
+                        args[ORTH_THRESH] = float(value)
+                    except ValueError:
+                        self._die(
+                            "Orthology probability threshold is not a valid floating point number"
+                            % value
+                        )
+                    continue
+                elif arg == ACCEPTED_CLASSES:
+                    accepted_loss_symbols: List[str] = value
+                    if any(x not in Constants.ALL_LOSS_SYMBOLS for x in accepted_loss_symbols):
+                        self._die(
+                            '"accepted_loss_symbols" contains inappropriate loss symbols: %s'
+                            % ", ".join(
+                                [
+                                    x
+                                    for x in accepted_loss_symbols
+                                    if x not in Constants.ALL_LOSS_SYMBOLS
+                                ]
+                            )
+                        )
+            args[arg] = value
+        missing_args: List[str] = [
+            x for x, y in args.items() if y is None and x in MANDATORY_ARGS
+        ]
+        if missing_args:
+            self._die(
+                "The following arguments are missing from the project argument file: %s"
+                % ", ".join(missing_args)
+            )
+        args["expanded"] = self.expanded
+        return args
 
     def parse_yaml(self) -> Dict[str, Union[str, None]]:
         """
@@ -1262,7 +1218,55 @@ class LogParserForSummary(CommandLineManager):
         WARNING: This is a method stub; the method's code will be expanded
         once additional project_args formats are implemented
         """
-        pass
+        import yaml
+        all_args: Dict[str, Union[str, Dict[any]]] = yaml.safe_load(self.args_file)
+        args: Dict[str, Union[str, None]] = {arg: None for arg in ALL_ARGS}
+        for arg in ALL_ARGS:
+            value: Union[str, None] = all_args.get(arg, None)
+            if value is None:
+                continue
+            if arg in MANDATORY_ARGS:
+                if arg in MANDATORY_PATH_ARGS:
+                    if not os.path.exists(value):
+                        self._die(
+                            (
+                                "Mandatory input file/directory %s does not exist or "
+                                "has been deleted since the run passed"
+                            ) % value
+                        )
+                elif arg == ORTH_THRESH:
+                    try:
+                        args[ORTH_THRESH] = float(value)
+                    except ValueError:
+                        self._die(
+                            "Orthology probability threshold is not a valid floating point number"
+                            % value
+                        )
+                    continue
+                elif arg == ACCEPTED_CLASSES:
+                    accepted_loss_symbols: List[str] = value
+                    if any(x not in Constants.ALL_LOSS_SYMBOLS for x in accepted_loss_symbols):
+                        self._die(
+                            '"accepted_loss_symbols" contains inappropriate loss symbols: %s'
+                            % ", ".join(
+                                [
+                                    x
+                                    for x in accepted_loss_symbols
+                                    if x not in Constants.ALL_LOSS_SYMBOLS
+                                ]
+                            )
+                        )
+            args[arg] = value
+        missing_args: List[str] = [
+            x for x, y in args.items() if y is None and x in MANDATORY_ARGS
+        ]
+        if missing_args:
+            self._die(
+                "The following arguments are missing from the project argument file: %s"
+                % ", ".join(missing_args)
+            )
+        args["expanded"] = self.expanded
+        return args
 
 
 class SummaryStat:
@@ -1275,15 +1279,19 @@ class SummaryStat:
         "query_2bit",
         "chain_file",
         "ref_annotation",
-        "output_dir",
-        "orth_prob_threshold",
+        "output",
+        "orthology_threshold",
         "orth_probs_file",
-        "accepted_classes",
+        "accepted_loss_symbols",
         "loss_summary",
         "query_genes",
         "orthology_classification",
         "ref_isoform_file",
+        "u12_file",
+        "spliceai_dir",
         "expanded",
+        "version",
+        "commit",
     )
 
     def __init__(
@@ -1292,14 +1300,16 @@ class SummaryStat:
         query_2bit: os.PathLike,
         chain_file: os.PathLike,
         ref_annotation: os.PathLike,
-        output_dir: os.PathLike,
-        orth_prob_threshold: float,
+        output: os.PathLike,
+        orthology_threshold: float,
         orth_probs_file: os.PathLike,
-        accepted_classes: str,
+        accepted_loss_symbols: str,
         loss_summary: os.PathLike,
         query_genes: os.PathLike,
         orthology_classification: os.PathLike,
         isoform_file: Optional[Union[os.PathLike, None]] = None,
+        u12_file: Optional[Union[os.PathLike, None]] = None,
+        spliceai_dir: Optional[Union[os.PathLike, None]] = None,
         expanded: Optional[bool] = False,
     ) -> None:
         """Entry point"""
@@ -1307,15 +1317,29 @@ class SummaryStat:
         self.query_2bit: os.PathLike = query_2bit
         self.chain_file: os.PathLike = chain_file
         self.ref_annotation: os.PathLike = ref_annotation
-        self.output_dir: os.PathLike = output_dir
-        self.orth_prob_threshold: float = orth_prob_threshold
+        self.output: os.PathLike = output
+        self.orthology_threshold: float = orthology_threshold
         self.orth_probs_file: os.PathLike = orth_probs_file
-        self.accepted_classes: List[str] = [x for x in accepted_classes.split(",") if x]
+        self.accepted_loss_symbols: List[str] = [x for x in accepted_loss_symbols.split(",") if x]
         self.loss_summary: os.PathLike = loss_summary
         self.query_genes: os.PathLike = query_genes
         self.orthology_classification: os.PathLike = orthology_classification
         self.ref_isoform_file: Union[os.PathLike, None] = isoform_file
+        self.u12_file: Union[os.PathLike, None] = u12_file
+        self.spliceai_dir: Union[os.PathLike, None] = spliceai_dir
         self.expanded: bool = expanded
+
+        sys.path.append(LOCATION)
+        from __version__ import __version__
+
+        self.version: str = __version__
+        sys.path.remove(LOCATION)
+
+        import git
+
+        repo = git.Repo(LOCATION, search_parent_directories=True)
+        sha = repo.head.commit.hexsha
+        self.commit: str = repo.git.rev_parse(sha, short=7)
 
     def summary(self) -> str:
         """Main summary method"""
@@ -1349,12 +1373,19 @@ class SummaryStat:
             tr2chain2prob[tr][chain] = prob
         num_classified_trs: int = len(tr2chain2prob)
         num_orth_tr: int = sum(
-            any(tr2chain2prob[x][y] >= self.orth_prob_threshold for y in tr2chain2prob[x])  
+            any(
+                tr2chain2prob[x][y] >= self.orthology_threshold
+                for y in tr2chain2prob[x]
+            )
             for x in tr2chain2prob
         )
         num_zero_orth: int = len(tr2chain2prob) - num_orth_tr
         num_one2one_prob: int = sum(
-            sum(tr2chain2prob[x][y] >= self.orth_prob_threshold for y in tr2chain2prob[x]) == 1
+            sum(
+                tr2chain2prob[x][y] >= self.orthology_threshold
+                for y in tr2chain2prob[x]
+            )
+            == 1
             for x in tr2chain2prob
         )
         num_no_proj: int = len(ref_transcripts) - len(tr2chain2prob)
@@ -1367,7 +1398,9 @@ class SummaryStat:
                 {
                     ref_tr2gene[x]
                     for x in tr2chain2prob
-                    if any(y >= self.orth_prob_threshold for y in tr2chain2prob[x].values())
+                    if any(
+                        y >= self.orthology_threshold for y in tr2chain2prob[x].values()
+                    )
                 }
             )
             gene_num_one2one: int = len(
@@ -1376,7 +1409,7 @@ class SummaryStat:
                     for x, y in ref_gene2tr.items()
                     if all(
                         sum(
-                            c >= self.orth_prob_threshold
+                            c >= self.orthology_threshold
                             for c in tr2chain2prob[z].values()
                         )
                         < 2
@@ -1384,7 +1417,7 @@ class SummaryStat:
                     )
                     and any(
                         sum(
-                            c >= self.orth_prob_threshold
+                            c >= self.orthology_threshold
                             for c in tr2chain2prob[z].values()
                         )
                         == 1
@@ -1398,7 +1431,7 @@ class SummaryStat:
                     for x, y in ref_gene2tr.items()
                     if not any(
                         sum(
-                            c >= self.orth_prob_threshold
+                            c >= self.orthology_threshold
                             for c in tr2chain2prob[z].values()
                         )
                         for z in y
@@ -1423,9 +1456,13 @@ class SummaryStat:
         proj2loss: Dict[str, Dict[str, int]] = defaultdict(int)
         tr2loss: Dict[str, Dict[str, int]] = defaultdict(int)
         gene2loss: Dict[str, Dict[str, int]] = defaultdict(int)
+        paralog2loss: Dict[str, str] = defaultdict(set)
         for data in read_tab(self.loss_summary):
             if data[0] == PROJECTION:
                 proj2loss[data[2]] += 1
+                if "#paralog" in data[1]:
+                    tr = get_proj2trans(data[1])[0]
+                    paralog2loss[tr].add(data[2])
                 continue
             if data[0] == TRANSCRIPT:
                 tr2loss[data[2]] += 1
@@ -1436,14 +1473,33 @@ class SummaryStat:
                 gene2loss[data[2]] += 1
                 continue
         proj_loss_classified: int = sum(proj2loss.values())
-        proj_present: int = sum(proj2loss.get(x, 0) for x in self.accepted_classes)
+        proj_present: int = sum(proj2loss.get(x, 0) for x in self.accepted_loss_symbols)
         proj_non_present: int = proj_loss_classified - proj_present
-        tr_loss_classified: int = sum(proj2loss.values())
-        tr_present: int = sum(tr2loss.get(x, 0) for x in self.accepted_classes)
+        tr_loss_classified: int = sum(tr2loss.values())
+        tr_present: int = sum(tr2loss.get(x, 0) for x in self.accepted_loss_symbols)
         tr_non_present: int = tr_loss_classified - tr_present
         genes_loss_classified: int = sum(proj2loss.values())
-        genes_present: int = sum(tr2loss.get(x, 0) for x in self.accepted_classes)
+        genes_present: int = sum(tr2loss.get(x, 0) for x in self.accepted_loss_symbols)
         genes_non_present: int = genes_loss_classified - genes_present
+        ## fetch the functional paralogs
+        paralog2loss: Dict[str, str] = {
+            x: max(y, key=lambda x: CLASS_TO_NUM[x]) for x, y in paralog2loss.items()
+        }
+        if self.ref_isoform_file:
+            par_genes_found: Set[str] = {ref_tr2gene[x] for x in paralog2loss.keys()}
+            num_with_func_para: int = 0
+            for _gene in par_genes_found:
+                best_status_per_gene: str = max(
+                    [paralog2loss.get(x, "N") for x in ref_gene2tr[_gene]],
+                    key=lambda x: CLASS_TO_NUM[x],
+                )
+                if best_status_per_gene in self.accepted_loss_symbols:
+                    num_with_func_para += 1
+        else:
+            num_with_func_para: int = sum(
+                y in self.accepted_loss_symbols for x, y in paralog2loss.items()
+            )
+        perc_with_func_para: float = to_perc(num_with_func_para, ref_gene_num)
         ## gene & orthology statistics
         query_genes: Set[str] = set()
         for data in read_tab(self.query_genes):
@@ -1452,9 +1508,12 @@ class SummaryStat:
             if data[0] == QUERY_ISOFORMS_HEADER:
                 continue
             query_genes.add(data[0])
-        undefined_orth: int = sum(
-            "lost_" in x or "missing_" in x or "paralog_" in x or "retro_" in x
-            for x in query_genes
+        lost_gene_num: int = sum("lost_" in x for x in query_genes)
+        missing_gene_num: int = sum("missing_" in x for x in query_genes)
+        paralog_gene_num: int = sum("paralog_" in x for x in query_genes)
+        ppgene_gene_num: int = sum("retro_" in x for x in query_genes)
+        undefined_orth: int = (
+            lost_gene_num + missing_gene_num + paralog_gene_num + ppgene_gene_num
         )
         defined_orth: int = len(query_genes) - undefined_orth
         gene2orth_class: Dict[str, Set[str]] = defaultdict(set)
@@ -1486,7 +1545,7 @@ class SummaryStat:
             to_perc(gene_num_no_proj, num_genes),
         )
         loss_summary: str = LOSS_SUMMARY_BOILERPLATE.format(
-            ", ".join(self.accepted_classes),
+            ", ".join(self.accepted_loss_symbols),
             proj2loss.get("FI", 0),
             to_perc(proj2loss.get("FI", 0), proj_loss_classified),
             proj2loss.get("I", 0),
@@ -1503,7 +1562,6 @@ class SummaryStat:
             to_perc(proj_present, proj_loss_classified),
             proj_non_present,
             to_perc(proj_non_present, proj_loss_classified),
-
             tr2loss.get("FI", 0),
             to_perc(tr2loss.get("FI", 0), tr_loss_classified),
             tr2loss.get("I", 0),
@@ -1520,7 +1578,6 @@ class SummaryStat:
             to_perc(tr_present, tr_loss_classified),
             tr_non_present,
             to_perc(tr_non_present, tr_loss_classified),
-
             gene2loss.get("FI", 0),
             to_perc(gene2loss.get("FI", 0), genes_loss_classified),
             gene2loss.get("I", 0),
@@ -1556,21 +1613,60 @@ class SummaryStat:
             len(gene2orth_class.get(ONE2ZERO, [])),
             to_perc(len(gene2orth_class.get(ONE2ZERO, [])), ref_gene_num),
         )
-        if self.ref_isoform_file is not None:
-            isoforms_line: str = ISOFORMS_LINE.format(self.ref_isoform_file)
-        else:
-            isoforms_line: str = ISOFORMS_CAVEAT
-        summary_text: str = SUMMARY_BOILERPLATE.format(
+        # if self.ref_isoform_file is not None:
+        #     isoforms_line: str = ISOFORMS_LINE.format(self.ref_isoform_file)
+        # else:
+        #     isoforms_line: str = ISOFORMS_CAVEAT
+        # summary_text: str = SUMMARY_BOILERPLATE.format(
+        #     br=BREAK_LINE,
+        #     ref_2bit=self.ref_2bit,
+        #     query_2bit=self.query_2bit,
+        #     chains=self.chain_file,
+        #     ref_annot=self.ref_annotation,
+        #     output=self.output,
+        #     isoforms_line=isoforms_line,
+        #     orthology_class_report=classification,
+        #     loss_summary=loss_summary,
+        #     orthology_res_report=orth_summary,
+        # )
+
+        num_with_func_orth: int = sum(
+            len(y) for x, y in gene2orth_class.items() if x != ONE2ZERO
+        )
+        perc_with_func_orth: float = to_perc(num_with_func_orth, ref_gene_num)
+
+        main_header: str = MAIN_HEADER.format(
             br=BREAK_LINE,
+            num_genes=defined_orth,
+            num_retro=ppgene_gene_num,
+            num_lost=lost_gene_num,
+            num_missing=missing_gene_num,
+            num_with_func_orth=num_with_func_orth,
+            perc_with_func_orth=perc_with_func_orth,
+            num_with_func_para=num_with_func_para,
+            perc_with_func_para=perc_with_func_para,
+            version=self.version,
+            commit=self.commit,
             ref_2bit=self.ref_2bit,
             query_2bit=self.query_2bit,
             chains=self.chain_file,
             ref_annot=self.ref_annotation,
-            output=self.output_dir,
-            isoforms_line=isoforms_line,
+            output=self.output,
+            isoforms=arg_or_na(self.ref_isoform_file),
+            u12_file=arg_or_na(self.u12_file),
+            spliceai_dir=arg_or_na(self.spliceai_dir),
+        )
+        warnings: str = ""
+        if not self.ref_isoform_file:
+            warnings += "\n" + ISOFORMS_CAVEAT
+        detailed_header: str = DETAILED_HEADER.format(br=BREAK_LINE, warnings=warnings)
+        summary_text: str = _SUMMARY_BOILERPLATE.format(
+            br=BREAK_LINE,
+            header=main_header,
+            detailed_header=detailed_header,
             orthology_class_report=classification,
             loss_summary=loss_summary,
-            orthology_res_report=orth_summary,
+            orthology_res_report=orth_summary
         )
 
         return summary_text
