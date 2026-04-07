@@ -156,6 +156,7 @@ jobs:
 
     - name: Test run
       run: |
+        source toga2/bin/activate
         ./toga2.py test
 
     - name: Verify build artifacts
