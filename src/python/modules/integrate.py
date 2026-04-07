@@ -22,6 +22,7 @@ from .shared import (
     base_proj_name,
     get_proj2trans,
     get_upper_dir,
+    make_cds_track,
     intersection,
 )
 
@@ -82,6 +83,8 @@ class ReferenceBundle:  ## initialized from a JSON object
         self.nucleotide_file: Union[str, None] = kwargs.get("nucleotide_file", None)
         self.priority: int = kwargs.get("priority", priority)
 
+    
+
 
 @dataclass
 class BedRecord:
@@ -98,6 +101,7 @@ class BedRecord:
         "strand",
         "loss_status",
         "lines",
+        "cds_lines",
         "exons",
     )
 
@@ -122,10 +126,7 @@ class BedRecord:
         self.loss_status: str = loss_status
         # self.lines: List[str] = lines
         self.lines: Dict[str, str] = lines
-        ## TODO: Refactor self.lines as {num: line} dict where "num" is the fragment number
-        ## for non-fragmented projections, keep {0: single_line}
-        ## when writing the results to the file
-        ## do it only once the other problems are properly debugged
+        self.cds_lines: Dict[str, str] = {x: make_cds_track(y) for x, y in lines.items()}
         self.exons: List[str] = []
 
     def return_bed_line(self, prefix: Union[str] = "") -> Iterable[str]:
