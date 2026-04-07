@@ -124,16 +124,12 @@ class BedRecord:
         self.end: int = end
         self.strand: bool = strand
         self.loss_status: str = loss_status
-        # self.lines: List[str] = lines
         self.lines: Dict[str, str] = lines
         self.cds_lines: Dict[str, str] = {x: make_cds_track(y) for x, y in lines.items()}
         self.exons: List[str] = []
 
     def return_bed_line(self, prefix: Union[str] = "") -> Iterable[str]:
         """Returns the initial BED line for the projection"""
-        # for line in self.lines:
-        #     yield line.format(f"{prefix}.{self.name}", CLASS_TO_COL[self.loss_status])
-        ## TODO: once the changes in the previous TODO are implemented, outcomment these lines
         for num, line in self.lines.items():
             name = self.name
             if num != 0:
@@ -435,7 +431,6 @@ class AnnotationIntegrator(CommandLineManager):
                 )
                 if name in self.query_projections:
                     if "," in name:
-                        # self.query_projections[name].lines.append(line_template)
                         self.query_projections[name].lines[segment] = line_template
                     else:
                         self._die(
@@ -734,8 +729,8 @@ class AnnotationIntegrator(CommandLineManager):
                     ## at this point, this is a likely candidate
                     ## however, chances are an item in exactly the same coordinates
                     ## has been already found
-                    if any(x in selected for x in proj.lines.values()):
-                        for line in proj.lines.values():
+                    if any(x in selected for x in proj.cds_lines.values()):
+                        for line in proj.cds_lines.values():
                             if line not in selected:
                                 continue
                             prev_name: str = selected[line]
@@ -770,9 +765,9 @@ class AnnotationIntegrator(CommandLineManager):
                         continue
                     ## otherwise, the new prediction is the winner
                     best_status = max(best_status, status)
-                    for line in proj.lines.values():
+                    for line in proj.cds_lines.values():
                         selected[line] = name
-                    name2lines_selected[name] = list(proj.lines.values())
+                    name2lines_selected[name] = list(proj.cds_lines.values())
                 ## now, process the paralogs
                 ## first, retrieve all the exon records
                 valid_exons: Dict[str, List[ExonRecord]] = defaultdict(list)
@@ -793,7 +788,7 @@ class AnnotationIntegrator(CommandLineManager):
                     ## ignore if exactly the same item has been already encountered
                     ## (by default, paralogs are expected to have one 'line' alone)
                     prev_is_better: bool = False
-                    for line in proj.lines.values():
+                    for line in proj.cds_lines.values():
                         if line not in selected:
                             continue
                         prev_name: str = selected[line]
@@ -821,16 +816,16 @@ class AnnotationIntegrator(CommandLineManager):
                                     break
                     if prev_is_better:
                         continue
-                    already_present: bool = all(x in selected for x in proj.lines.values())
+                    already_present: bool = all(x in selected for x in proj.cds_lines.values())
                     if already_present:
-                        for line in proj.lines.values():
+                        for line in proj.cds_lines.values():
                             selected[line] = paralog
-                        name2lines_selected[paralog] = list(proj.lines.values())
+                        name2lines_selected[paralog] = list(proj.cds_lines.values())
                         continue
                     if not selected:
                         for line in proj.lines.values():
                             selected[line] = paralog
-                        name2lines_selected[paralog] = list(proj.lines.values())
+                        name2lines_selected[paralog] = list(proj.cds_lines.values())
                         continue
                     ## a projection with all segments already encountered,
                     ## it will definitely not add any new exons
@@ -860,9 +855,9 @@ class AnnotationIntegrator(CommandLineManager):
                             to_add = True
                             break
                     if to_add:
-                        for line in proj.lines.values():
+                        for line in proj.cds_lines.values():
                             selected[line] = paralog
-                        name2lines_selected[paralog] = list(proj.lines)
+                        name2lines_selected[paralog] = list(proj.cds_lines)
                 ## last round: process the losses
                 if allowed_class_found:
                     ## first, add the exons coming from the newly included paralogs
@@ -878,10 +873,10 @@ class AnnotationIntegrator(CommandLineManager):
                         status: int = CLASS_TO_NUM[proj.loss_status]
                         species: str = self.query_proj2ref[lost_proj]
                         priority: int = self.ref_data[species].priority
-                        if all(x in selected for x in proj.lines.values()):
+                        if all(x in selected for x in proj.cds_lines.values()):
                             continue
                         prev_is_better: bool = False
-                        for line in proj.lines.values():
+                        for line in proj.cds_lines.values():
                             if line not in selected:
                                 continue
                             prev_name: str = selected[line]
@@ -930,9 +925,9 @@ class AnnotationIntegrator(CommandLineManager):
                                 to_add = True
                                 break
                         if to_add:
-                            for line in proj.lines.values():
+                            for line in proj.cds_lines.values():
                                 selected[line] = lost_proj
-                            name2lines_selected[lost_proj] = list(proj.lines)
+                            name2lines_selected[lost_proj] = list(proj.cds_lines)
                 ## all the projections have been processed; name the gene and define its coordinates
                 filtered_component: nx.Graph = component.copy()
                 nodes_to_remove: Set[str] = {
