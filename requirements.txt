@@ -23,4 +23,4 @@ maturin==1.10.1
 legacy-cgi
 ete3
 in_place
-intronic<=1.5.3,>=2.1.5
+intronic>=2.1.5
