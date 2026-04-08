@@ -570,7 +570,13 @@ class CodonAligner(CommandLineManager):
                     cmd: str = MAGUS_BEST_PRACTICE.format(*aln_format)
                 self._to_log("Running alignment for exon %s" % exon)
                 self._echo(f"Alignment command: {cmd}")
-                self._exec(cmd, ALN_ERROR.format(self.aligner, self.transcript, exon))
+                self.regular_alignment(
+                    cmd, 
+                    exon, 
+                    tmp_fasta_in_path,
+                    tmp_fasta_out_path,
+                )
+                # self._exec(cmd, ALN_ERROR.format(self.aligner, self.transcript, exon))
                 if self.aligner == MACSE and self.aa_file is None:
                     self._rm(aa_file)
             max_len: int = 0
@@ -646,6 +652,37 @@ class CodonAligner(CommandLineManager):
                 self._rm(tmp_fasta_out_path)
                 if self.tree is not None:
                     self._rm(tmp_tree_path)
+
+    def regular_alignment(
+        self, 
+        cmd: str, 
+        exon: int,
+        in_fasta: str,
+        out_fasta: str
+    ) -> None:
+        """
+        Staple sequence alignment method for PRANK/MACSE2/MAGUS aligners.
+        If only a single sequence is found in the input file, the whole directory
+
+        Args:
+            cmd: command to execute
+            exon: exon number to align; used in error message
+
+        Returns:
+            None
+
+        Raises:
+            Dies with self._die() if alignment command dies
+        """
+        present_seq_num: int = len(self.exon_seqs[exon])
+        if present_seq_num < 2:
+            self._to_log(
+                "One or less input sequence for exon %s; reporting the alignment as"
+            )
+            copy_cmd: str = f"cp {in_fasta} {out_fasta}"
+            _ = self._exec(copy_cmd, "Copying %s to %s failed" % (in_fasta, out_fasta))
+            return
+        self._exec(cmd, ALN_ERROR.format(self.aligner, self.transcript, exon))
 
     def muscle_alignment(self, seq_input: str, output: str) -> None:
         """
