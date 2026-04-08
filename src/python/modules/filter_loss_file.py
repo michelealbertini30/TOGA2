@@ -214,8 +214,6 @@ class LossFileFilter(CommandLineManager):
             if status in MISSING_STATS:
                 self.loss_out.write(f"{GENE}\t{gene}\t{status}\n")
                 continue
-            if gene not in gene2trs:
-                print(f"GENE NOT IN THE MAPPIG: {gene}")
             max_tr_stat: str = max(
                 [tr2loss.get(x) for x in gene2trs.get(gene, [])], key=lambda x: CLASS_TO_NUM[x]
             )
