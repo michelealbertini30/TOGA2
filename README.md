@@ -34,6 +34,7 @@ Detailed explanations of all output files can be found in our
 * `prepare-input` mode:
     * Exon sequence .2bit file for SLEASY compatibility generated along with BED and isoforms files.
     * File names are now prepended with an optional reference name prefix.
+For the full list of code changes, see [changelog.md](https://github.com/hillerlab/TOGA2/blob/main/changelog.md) .
 
 ## Installation
 
