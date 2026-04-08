@@ -10,6 +10,10 @@ CHANGELOG: str = "changelog.md"
 README: str = "README.md"
 VERSION_FILE: str = "__version__.py"
 VERSION_TEMPLATE: str = "__version__ = \"{}\""
+CHANGELOG_LINK_LINE: str = (
+    "For the full list of code changes, see "
+    "[changelog.md](https://github.com/hillerlab/TOGA2/blob/main/changelog.md) .\n"
+)
 
 @click.command()
 @click.argument("version", type=str, metavar="VERSION_NAME")
@@ -40,6 +44,7 @@ def versioneer(version: str) -> None:
     if not changelog_lines:
         click.echo("WARNING: No changelog update found")
         sys.exit(0)
+    changelog_lines += CHANGELOG_LINK_LINE
 
     ## replace the previous change description in README.md with a recent 
     anchor_found: bool = False
