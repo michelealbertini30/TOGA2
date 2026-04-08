@@ -92,7 +92,7 @@ MAIN_HEADER: str = """{br}
 TOGA2 annotated {num_genes} genes and {num_retro} retrogenes in the query genome.
 In addition, TOGA2 identified {num_lost} genes classified as lost and {num_missing} genes classified as missing in the query.
 
-Out of W reference genes, {num_with_func_orth} ({perc_with_func_orth}%) have at least one potentially functional ortholog, while for {num_with_func_para} ({perc_with_func_para}%) genes, TOGA2 identified only potentially functional paralogs in the query genome.
+Out of {ref_gene_num} reference genes, {num_with_func_orth} ({perc_with_func_orth}%) have at least one potentially functional ortholog, while for {num_with_func_para} ({perc_with_func_para}%) genes, TOGA2 identified only potentially functional paralogs in the query genome.
 
 #HEADER	QueryAssembly	no. annotated query genes	no. query retrogenes	no. lost genes in query	no. missing genes in query	no. ref genes with potentially functional orthologs	no. ref genes with potentially functional paralogs
 #SINGLELINESUMMARY   query {num_genes} {num_retro} {num_lost}  {num_missing}   {num_with_func_orth} {num_with_func_para}
@@ -1637,6 +1637,7 @@ class SummaryStat:
 
         main_header: str = MAIN_HEADER.format(
             br=BREAK_LINE,
+            ref_gene_num=ref_gene_num,
             num_genes=defined_orth,
             num_retro=ppgene_gene_num,
             num_lost=lost_gene_num,
