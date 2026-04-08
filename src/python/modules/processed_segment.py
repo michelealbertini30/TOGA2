@@ -973,7 +973,7 @@ class ProcessedSegment:
                         )
                         continue
                     if upstream_exon in self.introns_gained:
-                        if donor <= self.introns_gained[upstream_exon][-1][0]:
+                        if donor <= self.introns_gained[upstream_exon][-1][1]:#[0]:
                             self._to_log(
                                 f"Donor site at {donor} rules out query-specific introns "
                                 "defined by SpliceAI"
@@ -1121,7 +1121,7 @@ class ProcessedSegment:
                         )
                         continue
                     if downstream_exon in self.introns_gained:
-                        if acc >= self.introns_gained[downstream_exon][0][1]:
+                        if acc >= self.introns_gained[downstream_exon][0][0]:#[1]:
                             self._to_log(
                                 f"Acceptor site at {acc} rules out query-specific introns "
                                 "defined by SpliceAI"
@@ -1592,8 +1592,7 @@ class ProcessedSegment:
             if y.mutation_class in (FS_INS, FS_DEL)
         ]
         if len(frameshifts) < 2:
-            ## a solitary frameshift has nothing to compensate
-            ## or to be compensated by
+            ## a solitary frameshift has nothing to compensate or be compensated by
             return
         ## for each mutation other than the last one, check if it is compensated
         already_compensated: List[int] = []  ## to store frameshifts already compensated
