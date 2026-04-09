@@ -11,7 +11,7 @@ README: str = "README.md"
 VERSION_FILE: str = "__version__.py"
 VERSION_TEMPLATE: str = "__version__ = \"{}\""
 CHANGELOG_LINK_LINE: str = (
-    "For the full list of code changes, see "
+    "\nFor the full list of code changes, see "
     "[changelog.md](https://github.com/hillerlab/TOGA2/blob/main/changelog.md) .\n"
 )
 
