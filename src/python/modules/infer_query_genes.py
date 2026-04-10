@@ -322,6 +322,7 @@ class QueryGeneCollapser(CommandLineManager):
         "discarded_extensions_file",
         "discarded_overextensions",
         "rejected_items_file",
+        "debug",
     ]
 
     """

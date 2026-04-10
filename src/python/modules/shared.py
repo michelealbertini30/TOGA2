@@ -698,7 +698,7 @@ class Lock:
 
 
 class CommandLineManager:
-    __slots__ = ("v", "logger")
+    __slots__ = ("v", "debug", "logger")
     """
     A minimal functionality class to be decorated with Click functionality and
     further extended to suit particular scripts' needs
