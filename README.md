@@ -57,6 +57,8 @@ python3 -m venv toga2
 source toga2/bin/activate
 make
 ```
+
+### from Github + Conda
 As an alternative to Python virtual environment, you can also use Conda for environment creation. TOGA2 comes with a Conda configuration file which creates an environment with Python, Cargo, and Nextflow:
 ```bash
 git clone --recurse-submodules https://github.com/hillerlab/TOGA2
