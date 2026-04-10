@@ -154,6 +154,16 @@ jobs:
 
         ./toga2.py -h
 
+    - name: Test run
+      run: |
+        if [ ! -d "toga2" ]; then
+          python3 -m venv toga2
+        fi
+
+        source toga2/bin/activate
+
+        ./toga2.py test
+
     - name: Verify build artifacts
       run: |
         echo "Checking if binaries exist:"
