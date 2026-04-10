@@ -23,3 +23,5 @@ legacy-cgi
 ete3
 in_place
 intronic>=2.1.5
+gitpython
+pyaml
