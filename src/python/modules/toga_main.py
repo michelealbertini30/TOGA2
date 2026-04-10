@@ -3250,14 +3250,16 @@ class TogaMain(CommandLineManager):
             query_2bit=self.query_2bit,
             chain_file=self.chain_file,
             ref_annotation=self.bed_file_copy,
-            output_dir=self.output,
-            orth_prob_threshold=self.orthology_threshold,
+            output=self.output,
+            orthology_threshold=self.orthology_threshold,
             orth_probs_file=self.pred_scores,
-            accepted_classes=self.accepted_loss_symbols,
+            accepted_loss_symbols=self.accepted_loss_symbols,
             loss_summary=self.gene_loss_summary,
             query_genes=self.query_genes,
             orthology_classification=self.orth_resolution_report,
             isoform_file=self.isoform_file,
+            u12_file=self.u12_file,
+            spliceai_dir=self.spliceai_dir,
         ).summary()
         self._to_log("TOGA2 run summary:\n%s\n" % summary)
         self._to_log("The same summary can be found at %s" % self.summary)
