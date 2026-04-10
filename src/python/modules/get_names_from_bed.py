@@ -3,11 +3,10 @@
 
 Works like xenoRefGenelx.pl"""
 
-
-from .shared import CommandLineManager, CONTEXT_SETTINGS, read_tab
 from typing import Set
 import click
 import sys
+from shared import CommandLineManager, CONTEXT_SETTINGS, read_tab
 
 # from version import __version__
 
@@ -30,16 +29,48 @@ import sys
     show_default=False,
     help="Path to output index file [default: stdout]"
 )
+@click.option(
+    "--log_name",
+    "-ln",
+    type=str,
+    metavar="STR",
+    default=None,
+    show_default=True,
+    help="Logger name to use; relevant only upon main class import",
+)
+@click.option(
+    "--verbose",
+    "-v",
+    is_flag=True,
+    default=False,
+    show_default=True,
+    help="Controls execution verbosity",
+)
 
 class BedNameRetriever(CommandLineManager):
     """
     Extracts names from the BED3+ file for UCSC index creation. Imitates xenoRefGenelx.pl
     """
-    __slots__ = ()
+    __slots__ = ("v",)
 
-    def __init__(self, input: click.Path, output: click.Path) -> None:
+    def __init__(
+        self, 
+        input: click.File, 
+        output: click.File,
+        log_name: str,
+        verbose: bool,
+    ) -> None:
+        self.v: bool = verbose
+        self.set_logging(name=log_name, toga_module="bed_name_extractor")
+        self._to_log("Starting BedNameRetriever")
+
         out_set: Set[str] = set()
-        for i, data in enumerate(read_tab(self.input), start=1):
+        for i, data in enumerate(read_tab(input), start=1):
+        # with open(input, "r") as h:
+        # for i, line in enumerate(input, start=1):
+            # data: List[str] = line.strip().split("\t")
+            # if not data or not data[0]:
+            #     continue
             if len(data) < 4:
                 self._die(
                     (
