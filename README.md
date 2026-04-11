@@ -37,7 +37,7 @@ Detailed explanations of all output files can be found in our
 
 For the full list of code changes, see [changelog.md](https://github.com/hillerlab/TOGA2/blob/main/changelog.md) .
 
-For the full list of code changes, see `changelog.md`## Installation
+## Installation
 
 ### from Github
 TOGA2 Makefile provided in this repository contains directives for code compilation, third party software installation, Python package download, and model training. 
