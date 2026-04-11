@@ -1,4 +1,50 @@
-## v2.0.7
+## v2.0.8
+* `run` mode:
+    * Replacing positional arguments with keyword arguments
+    * `--isoform_file`, `--u12_file`, and `--spliceai_dir` options are now "semi-mandatory"; the user is expected to provide the respective arguments unless the explicit deprecative flags are set
+    * Alternative input formatting with `--input_directory`, `--ref_name`, and `--query_name` shortcuts: Format your data storage tree once and enjoy simplified command line interface
+    * All eight CESAR2 profiles can be now provided as a single input directory with the `--cesar_profile_dir` argument.
+    * Postoga summary table (`toga.table.gz`) added to the output for `run` mode
+    * Projections of the same reference gene/transcript overlapping by absolute coding sequence coordinates are now collapsed into a single query gene regardless of their overlap by coding exon coordinates
+    * `--paralogs_over_spanning` flag for swapping annotation priority
+    * revised naming notation for one-to-many genes: addoitional copies for genes with more than 26 instances in the query get the binary letter suffix ('_aa', '_ab', etc.); genes with more than 300 orthologous copies lead to a hardcoded crash.
+    * `--debug` mode (early access) for increased logging verbosity
+    * Variable project argument formats (TSV, JSON, YAML).
+* **NEW MODE**: `summary` for concise run summary generation.
+* `from-config` mode:
+    * Support for all accepted config formats (TSV, JSON, YAML).
+* `spliceai` mode:
+    * Lifting the "early access" warning (see `Minor changes`)
+* `integrate` mode:
+    * Paralogs overlapping orthologous projections are now retained as long as they contain enough novel sequence compared to the rest of the projections in the locus.
+* `prepare-input` mode:
+    * Exon sequence .2bit file for SLEASY compatibility generated along with BED and isoforms files.
+    * File names are now prepended with an optional reference name prefix.
+* Minor changes:
+    * `run`:
+        * Chimeric projections are no longer accounted for when estimated the most probable/most chain-covered items in `infer_query_genes.tsv`.
+        * Transcripts with processed pseudogene projections only are now classified as *Missing* and appear in the rejection log under the `PPGENE_ONLY` label.
+        * Genes with processed pseudogene projections only are also classified as *Missing*.
+        * Additional loss summary updated at the `finalize` step (**NOTE**: the updated data are not reflected in `meta/loss_summary_extended.tsv`).
+        * Stepwise rejection logs are now appended to `rejected_items.tsv` instead of being dumped to separate temporary files.
+        * Fixing rejection level for `GENE_TREE_REJECTION` category from `TRANSCRIPT` to `PROJECTION`.
+        * Default bootstrap number in `fine_ortology_resolver.py` set to 5000.
+        * Resolving faulty imports from `shared.py` in scheduler scripts.
+        * Temporary workarounds for conflicting paralogous/processed pseudogene projections from the rejection log in the gene loss summary module (`conservation_summary.py`).
+        * Timestamps removed from the project names and moved to `projet_args.tsv` instead.
+    * `spliceai`:
+        * Overlapping coordinates bug fixed
+        * Missing `project_name` arg fixed
+    * `sequence-alignment`:
+        * Error-free exit if no sequences were found across the query list for the focal transcript
+        * PRANK is set as default sequence aligner
+        * Fixed random seed option for PRANK
+        * Query projection names added to FASTA headers if `--add_projection_names` flag if set
+        * Added proper handling for exons present in one sequence only
+    * `prepare-input`:
+        * trailing comma-insensitive parsing for BED fields 10 and 11
+
+## v2.0.7a
 * `run` mode:
     * Replacing positional arguments with keyword arguments
     * `--isoform_file`, `--u12_file`, and `--spliceai_dir` options are now "semi-mandatory"; the user is expected to provide the respective arguments unless the explicit deprecative flags are set

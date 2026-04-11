@@ -226,6 +226,9 @@ class ChainClassifier(CommandLineManager):
 
         self.run()
 
+    def set_logging(self, log_name: Union[str, None]) -> None:
+        super().set_logging(name=log_name, toga_module="classification")
+
     def _load_model(self, model_path: click.Path) -> Any:
         """
         Uploads XGBoost classification model
@@ -463,11 +466,21 @@ class ChainClassifier(CommandLineManager):
 
         ## second, detect and record unclassified genes
         rejected_transcripts: Set[str] = init_tr_set.difference(set(results.transcript))
-        if not rejected_transcripts and not self.underscored_chain_projections:
+        ppgene_only: Set[str] = set(
+            results[results["pred"] != 2.0].transcript
+        ).difference(set(results.transcript))
+        if (
+            not rejected_transcripts and 
+            not self.underscored_chain_projections and 
+            not ppgene_only 
+        ):
             return
         with open(self.rejection_log, "w") as h:
             for tr in rejected_transcripts:
                 rej_line: str = RejectionReasons.UNCLASS_REJ_REASON.format(tr)
+                h.write(rej_line + "\n")
+            for tr in ppgene_only:
+                rej_line: str - RejectionReasons.PPGENE_ONLY_REASON.format(tr)
                 h.write(rej_line + "\n")
             for proj in self.underscored_chain_projections:
                 rej_line: str = RejectionReasons.UNDERSCORED_REJ_REASON.format(

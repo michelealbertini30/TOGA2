@@ -687,7 +687,7 @@ class InitialOrthologyResolver(CommandLineManager):
         verbose: Optional[bool],
     ) -> None:
         self.v: bool = verbose
-        self.set_logging(log_name)
+        self.set_logging(name=log_name, toga_module="orthology_initial")
 
         self._to_log("Extracting reference transcripts names for orthology resolution")
         ref_bed_names: List[str] = extract_names_from_bed(ref_bed)

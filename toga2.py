@@ -7,7 +7,7 @@ Master script for TOGA2
 import logging
 import os
 import sys
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 import click
 
@@ -27,7 +27,7 @@ from src.python.modules.cesar_wrapper_constants import (
     LAST_DONOR,
     MIN_ASMBL_GAP_SIZE,
 )
-from src.python.modules.codon_alignment import ALIGNERS_TO_USE, MACSE
+from src.python.modules.codon_alignment import ALIGNERS_TO_USE, PRANK
 from src.python.modules.constants import TOGA2_EPILOG, Constants
 from src.python.modules.input_producer import (
     DEFAULT_MEMORY_LIMIT,
@@ -126,23 +126,33 @@ orth_options: PrettyGroup = PrettyGroup(
     help="Orthology resolution settings, including the gene tree-based orthology refinement",
 )
 browser_options: PrettyGroup = PrettyGroup(
-    "UCSC browser", help="UCSC genome browser report parameters",
+    "UCSC browser",
+    help="UCSC genome browser report parameters",
 )
 utr_options: PrettyGroup = PrettyGroup(
-    "UTR annotation", help="Settings for the UTR annotation module",
+    "UTR annotation",
+    help="Settings for the UTR annotation module",
 )
 legacy_and_experimental: PrettyGroup = PrettyGroup("Legacy & experimental features")
 verbosity_options: PrettyGroup = PrettyGroup(
-    "Verbosity", help="Verbosity & notifications controls",
+    "Verbosity",
+    help="Verbosity & notifications controls",
 )
 binary_options: PrettyGroup = PrettyGroup(
-    "Executables", help="Auxiliary executables & third party software",
+    "Executables",
+    help="Auxiliary executables & third party software",
 )
 aligner_options: PrettyGroup = PrettyGroup(
-    "Aligner options", help="Nucleotide aligner selection & settings",
+    "Aligner options",
+    help="Nucleotide aligner selection & settings",
 )
 intronic_options: PrettyGroup = PrettyGroup(
-    "IntronIC options", help="IntronIC execution settings & control",
+    "IntronIC options",
+    help="IntronIC execution settings & control",
+)
+integration_options: PrettyGroup = PrettyGroup(
+    "Integration options",
+    help="Parameters for meta-gene inference and isoform selection",
 )
 out_options: PrettyGroup = PrettyGroup("Output")
 misc_options: PrettyGroup = PrettyGroup("Miscellaneous")
@@ -284,7 +294,7 @@ suspect that SpliceAI performs suboptimally for your query species, or have conc
 TOGA2 performance speed and memory consumption""",
 )
 @bundle_options.option(
-    '--input_directory',
+    "--input_directory",
     type=click.Path(exists=True),
     metavar="INPUT_DIR",
     cls=DependentOption,
@@ -298,10 +308,10 @@ in 2bit format, SpliceAI annotation), and genome alignment (a single chain file)
 from the "General input" section\n
     \tb) you can provide flag placeholders for isoform file, U12 intron file, and SpliceAI directories, 
 if you don't have the respective data\n
-See Manual for more details on input directory structure and formatting"""
+See Manual for more details on input directory structure and formatting""",
 )
 @bundle_options.option(
-    '--ref_name',
+    "--ref_name",
     type=str,
     metavar="REF_NAME",
     cls=DependentOption,
@@ -309,10 +319,10 @@ See Manual for more details on input directory structure and formatting"""
     default=None,
     show_default=True,
     help="""Reference organism/assembly name used in input files' names. 
-See Manual for more details on input directory formatting"""
+See Manual for more details on input directory formatting""",
 )
 @bundle_options.option(
-    '--query_name',
+    "--query_name",
     type=str,
     metavar="REF_NAME",
     cls=DependentOption,
@@ -320,7 +330,7 @@ See Manual for more details on input directory formatting"""
     default=None,
     show_default=True,
     help="""Query organism/assembly name used in input files' names. 
-See Manual for more details on input directory formatting"""
+See Manual for more details on input directory formatting""",
 )
 @control_flow_options.option(
     "--resume_from",
@@ -653,11 +663,36 @@ requires memory beyond this limit will be discarded before the alignment step.
 Value of 0 denotes unlimited memory""",
 )
 @cesar_options.option(
+    "--cesar_profile_dir",
+    "-prof",
+    type=click.Path(exists=True),
+    metavar="PATH",
+    default=(),
+    show_default=True,
+    help="""A path to a single directory containing the full set of CESAR2 profiles.
+The following files are expected:\n
+\tcanon_U2_donor.tsv - for canonical (GT/GC-AG) U2 donors;\n
+\tcanon_U2_acceptor.tsv - for canonical (GT/GC-AG) U2 acceptors;\n
+\tnonCanon_U2_donor.tsv - for non-canonical U2 donors;\n
+\tnonCanon_U2_acceptor.tsv - for non-canonical U2 acceptors;\n
+\tcanon_U12_donor.tsv - for canonical (GT-AG) U12 donors;\n
+\tcanon_U12_acceptor.tsv - for canonical (GT-AG) U12 acceptors'\n
+\tnonCanon_U12_donor.tsv - for non-canonical U12 donors;\n
+\tnonCanon_U12_acceptor.tsv - for non-canonical U12 acceptors\n
+Uniform profiles, equiprobable_donor.tsv and equiprobable_acceptor.tsv, generated 
+in the `prepare-input` mode, are not expected by default but are highly recommended 
+to keep.\n
+NOTE: the individual CESAR2 profile arguments above override the expected profiles in the CESAR2 
+profile directory. You can also provide an incomplete profile directory and specify the missing 
+profiles with the respective arguments, but TOGA2 missing any of the eight profile files will 
+result in an error.""",
+)
+@cesar_options.option(
     "--cesar_canon_u2_acceptor",
     "-cca",
     type=click.Path(exists=True),
     metavar="PATH",
-    default=HG38_CANON_U2_ACCEPTOR,
+    default=None,  # HG38_CANON_U2_ACCEPTOR,
     show_default=True,
     help="A path to canonical (GT/GC-AG) U2 acceptor profile",
 )
@@ -666,7 +701,7 @@ Value of 0 denotes unlimited memory""",
     "-ccd",
     type=click.Path(exists=True),
     metavar="PATH",
-    default=HG38_CANON_U2_DONOR,
+    default=None,  # HG38_CANON_U2_DONOR,
     show_default=True,
     help="A path to canonical (GT/GC-AG) U2 donor profile",
 )
@@ -675,7 +710,7 @@ Value of 0 denotes unlimited memory""",
     "-cnca",
     type=click.Path(exists=True),
     metavar="PATH",
-    default=HG38_NON_CANON_U2_ACCEPTOR,
+    default=None,  # HG38_NON_CANON_U2_ACCEPTOR,
     show_default=True,
     help="A path to non-canonical (non GT/GC-AG) U2 acceptor profile",
 )
@@ -684,7 +719,7 @@ Value of 0 denotes unlimited memory""",
     "-cncd",
     type=click.Path(exists=True),
     metavar="PATH",
-    default=HG38_NON_CANON_U2_DONOR,
+    default=None,  # HG38_NON_CANON_U2_DONOR,
     show_default=True,
     help="A path to non-canonical (non GT/GC-AG) U2 donor profile",
 )
@@ -693,7 +728,7 @@ Value of 0 denotes unlimited memory""",
     "-cua",
     type=click.Path(exists=True),
     metavar="PATH",
-    default=HG38_CANON_U12_ACCEPTOR,
+    default=None,  # HG38_CANON_U12_ACCEPTOR,
     show_default=True,
     help="A path to canonical (GT-AG) U12 exon acceptor profile",
 )
@@ -702,7 +737,7 @@ Value of 0 denotes unlimited memory""",
     "-cud",
     type=click.Path(exists=True),
     metavar="PATH",
-    default=HG38_CANON_U12_DONOR,
+    default=None,  # HG38_CANON_U12_DONOR,
     show_default=True,
     help="A path to canonical (GT-AG) U12  donor profile",
 )
@@ -711,7 +746,7 @@ Value of 0 denotes unlimited memory""",
     "-cnua",
     type=click.Path(exists=True),
     metavar="PATH",
-    default=EQUIPROBABLE_ACCEPTOR,
+    default=None,  # EQUIPROBABLE_ACCEPTOR,
     show_default=True,
     help="A path to non-canonical (non-GT-AG) U12 exon acceptor profile",
 )
@@ -720,7 +755,7 @@ Value of 0 denotes unlimited memory""",
     "-cnud",
     type=click.Path(exists=True),
     metavar="PATH",
-    default=HG38_NON_CANON_U12_DONOR,
+    default=None,  # HG38_NON_CANON_U12_DONOR,
     show_default=True,
     help="A path to non-canonical (non-GT-AG) U12 exon donor profile",
 )
@@ -1106,7 +1141,7 @@ All the parallel step scripts will be executed by invoking this container. """,
     type=str,
     default="apptainer",
     show_default=True,
-    help="A name for container executor engine. WARNING: Currently only \"apptainer\" is supported",
+    help='A name for container executor engine. WARNING: Currently only "apptainer" is supported',
 )
 @container_options.option(
     "--bindings",
@@ -1176,6 +1211,14 @@ as a prefix followed by run start date and time to name current runs'
 log and metadata files""",
 )
 @out_options.option(
+    "--project_arg_format",
+    "-argf",
+    type=click.Choice(Constants.CONFIG_FORMATS),
+    default=Constants.YAML,
+    show_default=True,
+    help="Project argument file format",
+)
+@out_options.option(
     "--keep_temporary_files",
     "-k",
     is_flag=True,
@@ -1184,10 +1227,15 @@ log and metadata files""",
     help="If set, temporary directory (tmp) is left intact after execution is complete",
 )
 @verbosity_options.option(
-    "--verbose", "-v", 
-    is_flag=True, 
-    default=False, 
-    help="Control logging verbosity"
+    "--verbose", "-v", is_flag=True, default=False, help="Control logging verbosity"
+)
+@verbosity_options.option(
+    "--debug",
+    is_flag=True,
+    default=False,
+    show_default=True,
+    help="""Increase logging verbosity by logging debugging messages. 
+Automatically enables \"--verbose\" flag""",
 )
 @verbosity_options.option(
     "--email",
@@ -1272,7 +1320,24 @@ def run(**kwargs) -> None:
     no_args_is_help=True,
     short_help="Run TOGA2 pipeline with a configuration file",
 )
-@click.argument("config_file", type=click.File("r", lazy=True), metavar="CONFIG_FILE")
+@click.option(
+    "--config_file",
+    "-c",
+    type=click.File("r", lazy=True),
+    metavar="CONFIG_FILE",
+    required=True,
+    default=None,
+    show_default=True,
+    help="A path to a config file",
+)
+@click.option(
+    "--config_format",
+    "-f",
+    type=click.Choice(Constants.CONFIG_FORMATS),
+    default="tsv",
+    show_default=True,
+    help=("Input config file format"),
+)
 @click.option(
     "--override",
     type=str,
@@ -1283,7 +1348,9 @@ def run(**kwargs) -> None:
 Settings provided this way will supersede those listed in the configuration file. 
 WARNING: Currenly does not accept argument short (single-dash) names""",
 )
-def from_config(config_file: click.File, override: Optional[str]) -> None:
+def from_config(
+    config_file: click.File, config_format: Optional[str], override: Optional[str]
+) -> None:
     """
     \b
     MMP""MM""YMM   .g8""8q.     .g8\"""bgd      db          `7MMF'`7MMF'
@@ -1307,7 +1374,9 @@ def from_config(config_file: click.File, override: Optional[str]) -> None:
     from src.python.modules.toga_configured import Toga2ConfiguredLauncher
     from src.python.modules.toga_main import TogaMain
 
-    args: List[str] = Toga2ConfiguredLauncher(config_file, override=override).run()
+    args: List[str] = Toga2ConfiguredLauncher(
+        config_file, config_format=config_format, override=override
+    ).run()
     TogaMain(**args)
 
 
@@ -1317,15 +1386,15 @@ def from_config(config_file: click.File, override: Optional[str]) -> None:
     short_help="Prepare reference annotation files for TOGA2 input",
 )
 @mandatory.option(
-    "--ref_2bit", 
-    type=click.Path(exists=True), 
+    "--ref_2bit",
+    type=click.Path(exists=True),
     metavar="REF_2BIT",
     cls=DependentOption,
     required=True,
 )
 @mandatory.option(
-    "--ref_annot", 
-    type=click.Path(exists=True), 
+    "--ref_annot",
+    type=click.Path(exists=True),
     metavar="REF_ANNOTATION_BED",
     cls=DependentOption,
     required=True,
@@ -1427,6 +1496,15 @@ for executable intronIC instance in $PATH""",
     help="""A path to UCSC twoBitToFa executable; if not set, the executable with this name 
 will be sought for in $PATH""",
 )
+@binary_options.option(
+    "--fatotwobit_binary",
+    type=click.Path(exists=True),
+    metavar="PATH",
+    default=None,
+    show_default=True,
+    help="""A path to UCSC faToTwoBit executable; if not set, the executable with this name 
+will be sought for in $PATH""",
+)
 @cesar_options.option(
     "--min_intron_length_cesar",
     "-cesar_min_l",
@@ -1444,6 +1522,14 @@ will be sought for in $PATH""",
     default=None,
     show_default=False,
     help="A path to save the results to [default: TOGA2_ref_annotation_<hex_code>]",
+)
+@out_options.option(
+    "--prefix",
+    type=str,
+    metavar="STR",
+    default=None,
+    show_default=True,
+    help="A prefix to prepend to the output file names.",
 )
 @out_options.option(
     "--keep_temporary",
@@ -1503,11 +1589,11 @@ def prepare_input(**kwargs) -> None:
     short_help="Generate SpliceAI predictions for query assembly",
 )
 @mandatory.option(
-    "--query_2bit", 
-    type=click.Path(exists=True), 
+    "--query_2bit",
+    type=click.Path(exists=True),
     metavar="QUERY_2BIT",
     cls=DependentOption,
-    required=True
+    required=True,
 )
 @spliceai_run_options.option(
     "--chunk_size",
@@ -1639,6 +1725,35 @@ administrator for available and recommended queues""",
     show_default=True,
     help="Memory limit for parallel SpliceAI jobs, in GB",
 )
+@control_flow_options.option(
+    "--resume_from",
+    "-res",
+    type=click.Choice(
+        ("all", "prepare", "schedule", "run", "aggregate"), case_sensitive=False
+    ),
+    metavar="STEP",
+    default="all",
+    show_default=True,
+    help="""If you have an unfinished run and want to resume with the same results,
+        select the step from the following list:\b
+        all: a placeholder for full starts the pipeline from the very beginning;\b\n
+        prepare: process the input data for SpliceAI annotation;\n
+        schedule: schedule parallel jobs\n
+        run: run parallel jobs for SpliceAI annotation\n
+        aggregate: aggregate the results of the parallel step\n""",
+)
+@control_flow_options.option(
+    "--halt_at",
+    "-halt",
+    type=click.Choice(
+        ("all", "prepare", "schedule", "run", "aggregate"), case_sensitive=False
+    ),
+    metavar="STEP",
+    default="all",
+    show_default=True,
+    help="""Halts the pipeline at the selected step (see above). Option "all" 
+implies running the pipeline to the last step""",
+)
 @binary_options.option(
     "--twobittofa_binary",
     type=click.Path(exists=True),
@@ -1706,16 +1821,14 @@ def spliceai(**kwargs) -> None:
        .JMML.     `"bmmd"'     `"bmmmdPY .AMA.   .AMMA.    .JMML..JMML.
 
     spliceai - Predict putative splice sites in the query assembly with SpliceAI\n
-    NOTE: This mode is currently in early access The results might differ from those produced 
-    by the code used for TOGA2 companion dataset preparation. 
     If you notice any substantial differences from the expected results, pleae contact TOGA2 developer team.\n
     \n
     TOGA2 uses SpliceAI predictions for the query genome to improve exon annotation and record
     unique evolutionary events, such as distant splice site shifts and intron gains, in the query.
     To learn more on how TOGA2 uses SpliceAI predictions, consult `toga2.py cookbook` or GitHub Wiki page.\n
     \n
-    NOTE: TOGA2 does not invoke SpliceAI during runtime and relies on predictions provided beforehand. 
-    If you want to improve your TOGA2 annotation results with SpliceAI data, 
+    NOTE: TOGA2 does not invoke SpliceAI during runtime and relies on predictions provided beforehand.
+    If you want to improve your TOGA2 annotation results with SpliceAI data,
     please run this mode for query genome or consult GitHub Wiki page for alternative solutions.
     """
     from src.python.modules.spliceai_manager import SpliceAiManager
@@ -1752,12 +1865,12 @@ def merge(**kwargs) -> None:
 by combining annotation with different references""",
 )
 @mandatory.option(
-    "--ref_data", 
-    type=click.Path(exists=True), 
+    "--ref_data",
+    type=click.Path(exists=True),
     metavar="INPUT_JSON",
     cls=DependentOption,
     required=True,
-    help="Input map, in JSON format"
+    help="Input map, in JSON format",
 )
 @out_options.option(
     "--output",
@@ -1767,7 +1880,7 @@ by combining annotation with different references""",
     show_default=True,
     help="A path to a directory to save the results to",
 )
-@loss_options.option(
+@integration_options.option(
     "--accepted_statuses",
     "-l",
     type=str,
@@ -1780,6 +1893,54 @@ for query gene inference and final annotation content unless no projection
 of these statuses occurs in a query locus. 
 Supported symbols are: %s. Keyword ALL lets all possible statuses in."""
     % ",".join(Constants.ALL_LOSS_SYMBOLS),
+)
+@integration_options.option(
+    "--paralog_rel_novelty_threshold",
+    "-parrel",
+    type=click.FloatRange(min=0.0, max=1.0),
+    metavar="FLOAT",
+    default=0.3,
+    show_default=True,
+    help=(
+        "Minimal fraction of exon length not overlapping with orthologous items for paralogous "
+        "sequences to be retained"
+    ),
+)
+@integration_options.option(
+    "--paralog_abs_novelty_threshold",
+    "-parabs",
+    type=click.IntRange(min=1, max=None),
+    metavar="INT",
+    default=15,
+    show_default=True,
+    help=(
+        "Minimal number of exon bases not overlapping with orthologous items for paralogous "
+        "sequences to be retained"
+    ),
+)
+@integration_options.option(
+    "--lost_rel_novelty_threshold",
+    "-lostrel",
+    type=click.FloatRange(min=0.0, max=1.0),
+    metavar="FLOAT",
+    default=0.3,
+    show_default=True,
+    help=(
+        "Minimal fraction of exon length not overlapping with functionally intact "
+        "ortholog for lost orthologs to be retained"
+    ),
+)
+@integration_options.option(
+    "--lost_abs_novelty_threshold",
+    "-lostabs",
+    type=click.IntRange(min=1, max=None),
+    metavar="INT",
+    default=15,
+    show_default=True,
+    help=(
+        "Minimal number of exon bases not overlapping with functionally intact "
+        "ortholog for lost orthologs to be retained"
+    ),
 )
 @browser_options.option(
     "--prefix",
@@ -1857,30 +2018,30 @@ def integrate(**kwargs) -> None:
        .JMML.     `"bmmd"'     `"bmmmdPY .AMA.   .AMMA.    .JMML..JMML.
 
     \b
-    integrate - Prepare an integrated TOGA2 annotation by combining annotation with different references.  
+    integrate - Prepare an integrated TOGA2 annotation by combining annotation with different references.
 
     \n\n
-    Integrated annotation is prepared from multiple independent TOGA2 runs for a single query. 
-    Since you are most likely interested in integrating annotation from multiple references, each of the 
-    individual input instances is referenced here and in the code as reference for simplcity, and 
+    Integrated annotation is prepared from multiple independent TOGA2 runs for a single query.
+    Since you are most likely interested in integrating annotation from multiple references, each of the
+    individual input instances is referenced here and in the code as reference for simplcity, and
     the TOGA2 annotation produced with a given reference and the query of choice are called a run.\n
     \n
-    To simplify the otherwise convoluted input structure, TOGA2 expects you to provide a run:{files} 
+    To simplify the otherwise convoluted input structure, TOGA2 expects you to provide a run:{files}
     mapping in JSON format as a single mandatory argument. Each run must have the following mandatory input files:\n
     \t* "query_bed": a reference query file for this run ("query_annotation.bed" or "query_annotation.with_utrs.bed");\n
     \t* "exon_meta": a query exon metafata file for this run ("meta/exon_meta.tsv(.gz)")\n
     The following files are not mandatory but facilitate proper gene integration and annotation refinement:\n
-    \t* "ucsc_bigbed": a BigBed file produced by TOGA2 for visualising this run's results in UCSC Browser. 
-    Used for both preparing the BigBed file for the combined annotation and extracting nucleotide and protein sequences 
+    \t* "ucsc_bigbed": a BigBed file produced by TOGA2 for visualising this run's results in UCSC Browser.
+    Used for both preparing the BigBed file for the combined annotation and extracting nucleotide and protein sequences
     if the respective arguments are not provided ("ucsc_browser_files/${your_prefix}.bb");\n
-    \t* "protein_file": a FASTA file of query protein sequences for this run; if not provided, 
+    \t* "protein_file": a FASTA file of query protein sequences for this run; if not provided,
     sequences will be extracted from the "ucsc_bigbed" file ("protein.fa(.gz)");\n
-    \t* "nucleotide_file": a FASTA file of query nucleotide sequences for this run; 
+    \t* "nucleotide_file": a FASTA file of query nucleotide sequences for this run;
     if not provided, sequences will be extracted from the the "ucsc_bigbed" file ("nucleotide.fa(.gz)");\n
-    \t* "reference_isoforms": a two-column file with gene-to-transcript mapping for the reference genome. NOTE: 
-    this is a REFERENCE isoforms file, potentially used as TOGA2 input, not the "query_genes.tsv" 
+    \t* "reference_isoforms": a two-column file with gene-to-transcript mapping for the reference genome. NOTE:
+    this is a REFERENCE isoforms file, potentially used as TOGA2 input, not the "query_genes.tsv"
     file produced by TOGA2 for this run.\n
-    Finally, for each run you can provide "priority" specifying which runs' results are retained in case 
+    Finally, for each run you can provide "priority" specifying which runs' results are retained in case
     of a tie. If not set, priority is inferred based on the order the runs appear in the JSON file.\n
     \n
     An example JSON file looks as follows:\n
@@ -1916,15 +2077,15 @@ def integrate(**kwargs) -> None:
     short_help="Align orthologous sequences from multiple TOGA2 results",
 )
 @mandatory.option(
-    "--input_dirs", 
-    type=click.File("r", lazy=True), 
+    "--input_dirs",
+    type=click.File("r", lazy=True),
     metavar="INPUT_DIRS_FILE",
     cls=DependentOption,
     required=True,
 )
 @mandatory.option(
-    "--transcript_id", 
-    type=str, 
+    "--transcript_id",
+    type=str,
     metavar="TRANSCRIPT_ID",
     cls=DependentOption,
     required=True,
@@ -1992,7 +2153,7 @@ Relevant if PRANK aligner is selected""",
     "-a",
     type=click.Choice(ALIGNERS_TO_USE, case_sensitive=False),
     metavar="ALIGNER_NAME",
-    default=MACSE,
+    default=PRANK,
     show_default=True,
     help=(
         "Aligner program to use. Options are: %s. Case-insensitive"
@@ -2029,6 +2190,14 @@ Relevant if PRANK aligner is selected""",
 Does not work with other aligners.""",
 )
 @aligner_options.option(
+    "--seed",
+    type=str,
+    metavar="SEED",
+    default="12345",
+    show_default=True,
+    help="Fixed random seed value for PRANK",
+)
+@aligner_options.option(
     "--muscle_threads",
     type=click.IntRange(min=1),
     default=1,
@@ -2043,6 +2212,17 @@ Does not work with other aligners.""",
     default=sys.stdout,
     show_default=False,
     help="A path to write the results to [default: stdout]",
+)
+@out_options.option(
+    "--add_projection_names",
+    is_flag=True,
+    default=False,
+    show_default=True,
+    help=(
+        "If set, projection names are appended to the query identifiers "
+        "in the FASTA file headers (NOTE: Current applies to the final "
+        "nucleotide alignment file only)"
+    ),
 )
 @out_options.option(
     "--amino_acids_output",
@@ -2117,6 +2297,7 @@ def sequence_alignment(**kwargs) -> None:
     Spiritual successor of `extract_codon_alignment.py` companion script from TOGA1 suite.
     """
     from src.python.modules.codon_alignment import CodonAligner
+
     CodonAligner(**kwargs)
 
 
@@ -2268,6 +2449,52 @@ def cookbook() -> None:
 
 @toga2.command(
     context_settings=CONTEXT_SETTINGS,
+    no_args_is_help=True,
+    short_help="Generate a summary for a finished run from its config file",
+)
+@click.option(
+    "--config",
+    type=click.Path(exists=True),
+    metavar="CONFIG_FILE",
+    required=True,
+    default=None,
+    show_default=True,
+    help=(
+        "A path to a TOGA2 run's configuration file (logs/project_args_<>). "
+        "The respective output directory is expected to exist and contain "
+        "all the default output files."
+    ),
+)
+@click.option(
+    "--config_format",
+    "-f",
+    type=click.Choice(Constants.CONFIG_FORMATS),
+    default="tsv",
+    show_default=True,
+    help=("Input config file format"),
+)
+@click.option(
+    "--expanded",
+    is_flag=True,
+    default=False,
+    show_default=True,
+    help=("If set, an expanded summary is produced"),
+)
+def summary(
+    config: click.Path,
+    config_format: Optional[str] = "tsv",
+    expanded: Optional[bool] = False,
+) -> None:
+    from src.python.modules.results_checks import LogParserForSummary, SummaryStat
+
+    kwargs: Dict[str, Any] = LogParserForSummary(
+        config, config_format, expanded
+    ).extract_settings()
+    print(SummaryStat(**kwargs).summary())
+
+
+@toga2.command(
+    context_settings=CONTEXT_SETTINGS,
     no_args_is_help=False,
     short_help="Test TOGA2 with companion dataset",
 )
@@ -2293,8 +2520,8 @@ def test(output: Optional[click.Path]) -> None:
 
     DEFAULT_ARGS["output"] = output
     DEFAULT_ARGS["no_spliceai"] = True
-    DEFAULT_ARGS["no_u12_file"]
-    DEFAULT_ARGS["no_isoform_file"] = True
+    # DEFAULT_ARGS["no_u12_file"]
+    # DEFAULT_ARGS["no_isoform_file"] = True
     TogaMain(**DEFAULT_ARGS)
 
 

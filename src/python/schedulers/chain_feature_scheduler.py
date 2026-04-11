@@ -315,7 +315,7 @@ class ChainFeatureScheduler(CommandLineManager):
         """ """
         if not self.rejected_transcripts:
             return
-        with open(self.rejection_log, "w") as h:
+        with open(self.rejection_log, "a") as h:
             for rej_report in self.rejected_transcripts:
                 h.write(rej_report + "\n")
 

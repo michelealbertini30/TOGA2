@@ -13,7 +13,7 @@ from typing import Dict, List, Optional, TextIO, Tuple, Union
 import click
 from ete3 import Tree
 
-from .cesar_wrapper_constants import LOSS_STATUSES
+from .cesar_wrapper_constants import CLASS_TO_NUM, LOSS_STATUSES
 from .constants import Headers
 from .shared import CommandLineManager, hex_code
 
@@ -37,7 +37,7 @@ EXON_GZIP_INDEX: str = ".exon_aln.fa.gz.ix"
 TWOBIT_FILE: str = "exon_seqs.2bit"
 EXTRACTION_ERROR: str = "Sequence extraction for {} from 2bit file {} failed"
 EXON_SEP_DUMMY: str = "n"
-PRANK_BEST_PRACTICE: str = "{} -d={} -F -DNA -o={}"
+PRANK_BEST_PRACTICE: str = "{} -d={} -F -DNA -o={} -seed={} "
 PRANK_FOR_REGULAR_ALN: str = " -iterate=10"
 PRANK_FOR_ANCESTRAL: str = " -once -showanc"
 MACSE_BEST_PRACTICE: str = "{} -prog alignSequences -seq {} -out_NT {} -out_AA {}"
@@ -98,6 +98,7 @@ class CodonAligner(CommandLineManager):
         "muscle_threads",
         "tree",
         "aa_file",
+        "seed",
         "show_ancestors",
         "ancestral_seq_dir",
         "aligner_exe",
@@ -105,6 +106,7 @@ class CodonAligner(CommandLineManager):
         "tmp_dir",
         "keep_tmp",
         "output",
+        "add_projection_names",
         "confidence_score_file",
         "exon2phase",
         "exon2length",
@@ -113,6 +115,7 @@ class CodonAligner(CommandLineManager):
         "confidence_scores",
         "exon2missing",
         "no_sequence_queries",
+        "species2name",
         "clean_tmp",
     )
 
@@ -153,8 +156,10 @@ class CodonAligner(CommandLineManager):
         amino_acids_output: Optional[Union[click.Path, None]],
         show_ancestors: Optional[bool],
         path_to_ancestor_files: Optional[Union[click.Path, None]],
+        seed: Optional[str],
         confidence_scores: Optional[Union[click.File, None]],
         muscle_threads: Optional[int],
+        add_projection_names: Optional[bool],
         twobit2fa: Optional[Union[click.Path, None]],
         tmp_dir: Optional[Union[click.Path, None]],
         keep_tmp: Optional[bool],
@@ -184,6 +189,8 @@ class CodonAligner(CommandLineManager):
             )
         self.show_ancestors: bool = show_ancestors
         self.ancestral_seq_dir: Union[click.Path, None] = path_to_ancestor_files
+        self.seed: str = seed
+        self.add_projection_names: bool = add_projection_names
         self.ref_exon_path: Union[str, None] = reference_exons
         self.ref_name: Union[str, None] = reference_name
         if self.ref_exon_path is not None and self.ref_name is None:
@@ -195,6 +202,7 @@ class CodonAligner(CommandLineManager):
         self.confidence_scores: Dict[str, str] = defaultdict(str)
         self.exon2missing: Dict[int, List[str]] = defaultdict(list)
         self.no_sequence_queries: List[str] = []
+        self.species2name: Dict[str, str] = {}
         self.tmp_dir: str = tmp_dir
         if not os.path.exists(tmp_dir):
             self._mkdir(self.tmp_dir)
@@ -231,6 +239,7 @@ class CodonAligner(CommandLineManager):
                 "Successfully extracted %i exons for reference %s"
                 % (len(ref_sequences), self.ref_name)
             )
+        non_missing_queries: int = 0
         for i, line in enumerate(input_dirs):
             path: str = line.rstrip()
             if not path:
@@ -249,34 +258,50 @@ class CodonAligner(CommandLineManager):
             self._to_log(
                 "Found %i projection names for species %s" % (num_proj_found, species)
             )
+            non_missing_queries += 1
             if num_proj_found > 1:
                 self._to_log(
                     "Duplicated entry for projection %s in species %s"
                     % (self.transcript, species),
                     "warning",
                 )
-                self.no_sequence_queries.append(species)
-                continue
+                # self.no_sequence_queries.append(species)
+                # continue
             ref_found: bool = (
                 species == self.ref_name or i == 0
             ) and self.ref_exon_path is None
             if ref_found:
                 self.ref_name = species
-            proj: str = projection_names[0]
             rejected: bool = False
             if self.loss_statuses:
-                accepted_loss_status: bool = self.check_loss_status(path, proj)
-                if not accepted_loss_status:
+                # accepted_loss_status: bool = self.check_loss_status(path, proj)
+                # if not accepted_loss_status:
+                #     self._to_log(
+                #         (
+                #             "Projection %s does not comply with the accepted lost statuses "
+                #             "provided in species %s; accepted statuses are: %s"
+                #         )
+                #         % (proj, species, ",".join(self.loss_statuses)),
+                #         "warning",
+                #     )
+                #     self.no_sequence_queries.append(species)
+                #     rejected = True
+                status2proj: Dict[str, str] = self.check_loss_status(path, projection_names)
+                highest_status: str = max(status2proj.keys(), key=lambda x: CLASS_TO_NUM[x])
+                if highest_status not in self.loss_statuses:
                     self._to_log(
                         (
-                            "Projection %s does not comply with the accepted lost statuses "
-                            "provided in species %s; accepted statuses are: %s"
+                            "Neither of the found projections comply with the accepted lost statuses"
+                            "in species %s; accepted statuses are: %s"
                         )
-                        % (proj, species, ",".join(self.loss_statuses)),
+                        % (species, ",".join(self.loss_statuses)),
                         "warning",
                     )
                     self.no_sequence_queries.append(species)
                     rejected = True
+                projection_names: List[str] = status2proj[highest_status]
+            proj: str = min(projection_names, key=lambda x: int(x.split("#")[-1].split(",")[0]))
+            self.species2name[species] = proj
             exons: Dict[str, int] = self.extract_sequences(
                 path, proj, infer_phases=ref_found
             )
@@ -297,6 +322,12 @@ class CodonAligner(CommandLineManager):
             self._to_log(
                 "Extracted %i exon sequences for species %s" % (len(exons), species)
             )
+        if non_missing_queries == 0:
+            self._to_log(
+                "No 1:1 orthology found in any query for transcript %s" % self.transcript,
+                "warning"
+            )
+            self._exit()
         self._to_log("Proceeding to alignment step")
         self.run_alignment()
         self._to_log("Writing output fasta to %s" % self.output.name)
@@ -365,7 +396,8 @@ class CodonAligner(CommandLineManager):
                 out_projs.append(proj_name)
         return out_projs
 
-    def check_loss_status(self, path: str, proj: str) -> bool:
+    # def check_loss_status(self, path: str, proj: str) -> bool:
+    def check_loss_status(self, path: str, projections: List[str]) -> Dict[str, str]:
         """
         Checks whether an orthologous sequence has an accepted loss status
         defined by the user
@@ -375,6 +407,7 @@ class CodonAligner(CommandLineManager):
             self._die(
                 "File %s is missing from the input directory %s" % (LOSS_FILE, path)
             )
+        status2proj: Dict[str, List[str]] = defaultdict(list)
         with open(loss_file, "r") as h:
             for i, line in enumerate(h, start=1):
                 line = line.rstrip()
@@ -388,9 +421,13 @@ class CodonAligner(CommandLineManager):
                         "Improperly formatting found in file %s at line %i"
                         % (loss_file, i)
                     )
-                if data[1] != proj:
+                # if data[1] != proj:
+                #     continue
+                # return data[2] in self.loss_statuses
+                if data[1] not in projections:
                     continue
-                return data[2] in self.loss_statuses
+                status2proj[data[2]].append(data[1])
+        return status2proj
 
     def extract_sequences(
         self,
@@ -556,9 +593,9 @@ class CodonAligner(CommandLineManager):
                         )  ## TODO: Must be created for each exon
                     cmd: str = MACSE_BEST_PRACTICE.format(*aln_format, aa_file)
                 elif self.aligner == PRANK:
-                    cmd: str = PRANK_BEST_PRACTICE.format(*aln_format)
+                    cmd: str = PRANK_BEST_PRACTICE.format(*aln_format, self.seed)
                     if self.tree is not None:
-                        cmd += f" -t={tmp_tree_path}"
+                        cmd += f" -t={tmp_tree_path} -prunetree"
                     if self.show_ancestors:
                         cmd += PRANK_FOR_ANCESTRAL
                         anc_fa = tmp_fasta_out_path + ".best.anc.fas"
@@ -576,12 +613,12 @@ class CodonAligner(CommandLineManager):
                     tmp_fasta_in_path,
                     tmp_fasta_out_path,
                 )
-                # self._exec(cmd, ALN_ERROR.format(self.aligner, self.transcript, exon))
+                self._exec(cmd, ALN_ERROR.format(self.aligner, self.transcript, exon))
                 if self.aligner == MACSE and self.aa_file is None:
                     self._rm(aa_file)
             max_len: int = 0
-            ## parse the output alignment file, record the aligned lines per species
 
+            ## parse the output alignment file, record the aligned lines per species
             with open(tmp_fasta_out_path, "r") as h:
                 species: str = ""
                 seq: str = ""
@@ -601,6 +638,7 @@ class CodonAligner(CommandLineManager):
                     seq += line
                 if seq:
                     self.concatenated_fasta[species] += seq
+                    max_len: int = max(max_len, len(seq))
             ## if MUSCLE was used for sequence alignment, record the column confidence scores in the same fashion
             if self.aligner == MUSCLE:
                 confidence_file: str = tmp_fasta_in_path + ".letterconf.afa"
@@ -735,6 +773,10 @@ class CodonAligner(CommandLineManager):
             if species == self.ref_name:
                 species = "REFERENCE"
             header: str = f">{species}"
+            if self.add_projection_names:
+                proj_name: Union[str] = self.species2name.get(species)
+                if proj_name:
+                    header = f"{header}.{proj_name}"
             self.output.write(header + "\n" + seq + "\n")
         if self.aligner == MUSCLE:
             for species, score in self.confidence_scores.items():
@@ -742,6 +784,10 @@ class CodonAligner(CommandLineManager):
                     species = "REFERENCE"
                 header: str = f">{species}"
                 self.confidence_score_file.write(header + "\n" + score + "\n")
+
+    def set_logging(self) -> None:
+        """Overriding logging setup module"""
+        super().set_logging()
 
 
 if __name__ == "__main__":

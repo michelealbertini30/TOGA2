@@ -23,7 +23,12 @@ from .parallel_jobs_manager import (
     ParaStrategy,
 )
 from .results_checks import ResultChecker, SanityCheckResult
-from .shared import CommandLineManager, dir_name_by_date, get_upper_dir, hex_dir_name
+from .shared import (
+    CommandLineManager,
+    hex_dir_name,
+    get_upper_dir,
+    timestamp,
+)
 
 __author__ = "Yury V. Malovichko"
 __year__ = "2024"
@@ -34,6 +39,7 @@ PYTHON_DIR: str = get_upper_dir(__file__, 2)
 BIN: str = os.path.join(LOCATION, "bin")
 
 sys.path.append(PYTHON_DIR)
+logging.root.handlers = []
 
 
 class TogaMain(CommandLineManager):
@@ -105,6 +111,7 @@ class TogaMain(CommandLineManager):
         job_nums_per_bin: Optional[str],
         allow_heavy_jobs: Optional[bool],
         cesar_memory_limit: Optional[int],
+        cesar_profile_dir: Optional[os.PathLike],
         cesar_canon_u2_acceptor: Optional[os.PathLike],
         cesar_canon_u2_donor: Optional[os.PathLike],
         cesar_non_canon_u2_acceptor: Optional[os.PathLike],
@@ -160,8 +167,10 @@ class TogaMain(CommandLineManager):
         account_for_alternative_frame: Optional[bool],
         output: Optional[os.PathLike],
         project_name: Optional[str],
+        project_arg_format: Optional[str],
         keep_temporary_files: Optional[bool],
         verbose: Optional[bool],
+        debug: Optional[bool],
         email: Optional[Union[str, None]],
         mailx_binary: Optional[Union[str, None]],
         fatotwobit_binary: Optional[Union[os.PathLike, None]],
@@ -171,9 +180,11 @@ class TogaMain(CommandLineManager):
         ixixx_binary: Optional[Union[os.PathLike, None]],
         # version: Optional[bool],
     ) -> None:
-        self.v: bool = verbose
+        self.v: bool = verbose | debug
+        self.debug: bool = debug
         self.project_name: str = project_name
         self.project_id: str = hex_dir_name(self.project_name)
+        self.timestamp: str = timestamp()
 
         ## command line-configured attributes
         self.ref_2bit: os.PathLike = self._abspath(ref_2bit)
@@ -218,7 +229,7 @@ class TogaMain(CommandLineManager):
         self.orthology_threshold: float = orthology_threshold
         self.se_model: os.PathLike = single_exon_model
         self.me_model: os.PathLike = multi_exon_model
-        self.use_ld_model: bool = long_distance_model
+        self.use_ld_model: bool = use_long_distance_model
         self.ld_model: os.PathLike = long_distance_model
 
         self.disable_fragment_assembly: bool = disable_fragment_assembly
@@ -231,6 +242,7 @@ class TogaMain(CommandLineManager):
         self.preprocessing_job_num: int = preprocessing_jobs
         self.max_chains_per_transcript: int = max_chains_per_transcript
         self.cesar_memory_limit: float = cesar_memory_limit
+        self.cesar_profile_dir: Union[os.PathLike, None] = cesar_profile_dir
         self.max_search_space_size: int = max_search_space_size
         self.extrapolation_modifier: float = extrapolation_modifier
         self.minimal_covered_fraction: float = (
@@ -312,10 +324,11 @@ class TogaMain(CommandLineManager):
         self.parallel_strategy: str = parallel_strategy
         self.max_number_of_retries: int = max_number_of_retries
         self.nextflow_exec_script: str = nextflow_exec_script
-        self.local_executor: str = (
+        self.local_executor: bool = (
             parallel_strategy == "local"
         )  # self.nextflow_config_dir is not None ## TODO: Add config dir content check
         self.max_parallel_time: int = max_parallel_time
+        self.project_arg_format: str = project_arg_format
         self.keep_nextflow_log: bool = keep_nextflow_log
         self.cluster_queue_name: str = cluster_queue_name
         self.container_image: Union[os.PathLike, None] = self._abspath(container_image)
@@ -326,7 +339,7 @@ class TogaMain(CommandLineManager):
         self.parallel_process_names: List[str] = []
 
         self.output: str = self._abspath(
-            output if output else dir_name_by_date("toga2_run")
+            output if output else hex_dir_name("toga2_run")#dir_name_by_date("toga2_run")
         )
         self.keep_tmp: bool = keep_temporary_files
 
@@ -692,7 +705,11 @@ class TogaMain(CommandLineManager):
         ## check the input directory if one was provided
         if self.input_dir is not None:
             self._to_log("Checking input directory contents")
-            self.check_input_dir() 
+            self.check_input_dir()
+
+        ## check CESAR profile completeness
+        self._to_log("Checking CESAR2 profiles")
+        self.check_cesar_profiles()
 
         ## check the input arguments
         self._to_log("Checking input arguments")
@@ -873,16 +890,16 @@ class TogaMain(CommandLineManager):
 
         ## Step 6: Infer query gene structure
         if self._execute_step("gene_inference"):
-            ## 6a: Aggregate rejection reports from all the previous steps
-            if not self.rejection_log_cleaned:
-                self._to_log("Aggregating rejection reports")
-                self.aggregate_rejection_reports()
-            self._to_log(
-                "Rejected items from all the finished steps are aggregated at %s"
-                % (self.final_rejection_log),
-                "info",
-            )
-            ## 6b: Infer query genes as the step name suggests
+            ## DEPRECATED - 6a: Aggregate rejection reports from all the previous steps
+            # if not self.rejection_log_cleaned:
+            #     self._to_log("Aggregating rejection reports")
+            #     self.aggregate_rejection_reports()
+            # self._to_log(
+            #     "Rejected items from all the finished steps are aggregated at %s"
+            #     % (self.final_rejection_log),
+            #     "info",
+            # )
+            ## Infer query genes as the step name suggests
             self._to_log("Inferring query genes")
             self.infer_query_genes()
             self._to_log("Query genes successfully inferred")
@@ -898,9 +915,9 @@ class TogaMain(CommandLineManager):
                 self._exit(
                     "Finishing pipeline before query gene inference step as suggested"
                 )
-            self._to_log("Skipping gene loss summary step as suggested")
+            self._to_log("Skipping gene inference step as suggested")
 
-        ## Step 6: Summarise ortholog presence status on projection, transcript,
+        ## Step 7: Summarise ortholog presence status on projection, transcript,
         ## and (if requested) gene levels
         if self._execute_step("loss_summary"):
             ## 6b: Summarise loss data
@@ -916,7 +933,7 @@ class TogaMain(CommandLineManager):
             self._to_log("Skipping gene loss summary step as suggested")
         self._sanity_check(self.result_checker.check_loss_summary())
 
-        ## Step 7: Resolve orthology status for all reference genes
+        ## Step 8: Resolve orthology status for all reference genes
         if self._execute_step("orthology"):
             ## resolve orthology relationships with a graph-based method
             if not self.skip_tree_resolver:
@@ -950,7 +967,7 @@ class TogaMain(CommandLineManager):
         if self.skip_tree_resolver:
             self._sanity_check(self.result_checker.check_orthology_resolution())
 
-        ## Step 8: If tree-based resolution was requested, summarize its results
+        ## Step 9: If tree-based resolution was requested, summarize its results
         ## and adjust orthology resolution accordingly
         if self._execute_step("summarize_trees") and not self.skip_tree_resolver:
             self._to_log("Adding gene tree step results to orthology resolution")
@@ -972,7 +989,7 @@ class TogaMain(CommandLineManager):
         if not self.skip_tree_resolver:
             self._sanity_check(self.result_checker.check_orthology_resolution())
 
-        ## Step 9: Finalize the output
+        ## Step 10: Finalize the output
         if self._execute_step("finalize"):
             # self._to_log('Creating exon FASTA HDF5 storage for SLEASY')
             self._to_log("Aggregatig deprecated projection lists")
@@ -1003,6 +1020,8 @@ class TogaMain(CommandLineManager):
             ## before moving to the final steps, record the failed batches
             self._to_log("Recording failed batches if any found")
             self.write_failed_batches()
+            ## Drop the summary
+            self.get_summary()
         else:
             if self.halt_at == "finalize":
                 self.notify_on_completion("finalize")
@@ -1011,7 +1030,7 @@ class TogaMain(CommandLineManager):
                 )
             self._to_log("Skipping output finalizing step as suggested")
 
-        ## Step 10: Prepare UCSC browser input files
+        ## Step 11: Prepare UCSC browser input files
         if self._execute_step("ucsc_report"):
             self._to_log("Preparing BigBed track for UCSC Genome Browser")
             self.prepare_bigbed_track()
@@ -1024,9 +1043,7 @@ class TogaMain(CommandLineManager):
                 )
             self._to_log("Skipping UCSC report preparation step as suggested")
 
-        ## Step 11: Final touch
-        ## Drop the summary
-        self.get_summary()
+        ## Step 12: Final touch
 
         ## If requested, clean the temporary directory
         self._to_log("TOGA2 pipeline finished, cleaning up the temporary data")
@@ -1042,16 +1059,17 @@ class TogaMain(CommandLineManager):
         """
         Sets up logging system for a TogaMain instance
         """
-        self.logger: logging.Logger = logging.getLogger(self.project_id)
-        file_handler: logging.FileHandler = logging.FileHandler(
-            self.log_file, mode="a", encoding=Constants.UTF8
-        )
-        file_handler.setFormatter(Constants.FORMATTER)
-        self.logger.addHandler(file_handler)
-        if self.v:
-            console_handler: logging.StreamHandler = logging.StreamHandler()
-            console_handler.setFormatter(Constants.FORMATTER)
-            self.logger.addHandler(console_handler)
+        # self.logger: logging.Logger = logging.getLogger(self.project_id)
+        # file_handler: logging.FileHandler = logging.FileHandler(
+        #     self.log_file, mode="a", encoding=Constants.UTF8
+        # )
+        # file_handler.setFormatter(Constants.FORMATTER)
+        # self.logger.addHandler(file_handler)
+        # if self.v:
+        #     console_handler: logging.StreamHandler = logging.StreamHandler()
+        #     console_handler.setFormatter(Constants.FORMATTER)
+        #     self.logger.addHandler(console_handler)
+        super().set_logging(name=self.project_id, toga_module="toga2")
         self.logger.propagate = False
 
     def _to_log(self, msg: str, level: str = "info") -> None:
@@ -1096,8 +1114,18 @@ class TogaMain(CommandLineManager):
         """Dumps run parameters to a text file"""
         sys.path.append(LOCATION)
         from __version__ import __version__
-        with open(self.arg_file, "w") as h:
-            h.write(f"version\t{__version__}\n")
+
+        context = (
+            open(self.arg_file, "w") if self.project_arg_format == "tsv" else nullcontext()
+        )
+        arg_dict: Dict[str, Any] = {"parameters": {}}
+        with context as h:
+            if self.project_arg_format == "tsv":
+                h.write(f"version\t{__version__}\n")
+                h.write(f"start_time\t{self.timestamp}")
+            else:
+                arg_dict["version"] = __version__
+                arg_dict["start_time"] = self.timestamp
             for arg, option in TOGA2_SLOT2ARG.items():  ## TODO: Double-check the number
                 arg_value: str = getattr(self, arg)
                 value: str = (
@@ -1107,7 +1135,18 @@ class TogaMain(CommandLineManager):
                     if arg_value == ""
                     else arg_value
                 )
-                h.write("\t".join(map(str, (option, value))) + "\n")
+                if self.project_arg_format == "tsv":
+                    h.write("\t".join(map(str, (option, value))) + "\n")
+                else:
+                    arg_dict["parameters"][option] = value
+        if context != "tsv":
+            with open(self.arg_file, "w") as h:
+                if self.project_arg_format == "yaml":
+                    import yaml
+                    yaml.dump(arg_dict, h, default_flow_style=False)
+                else:
+                    import json
+                    json.dump(arg_dict, h)
         sys.path.remove(LOCATION)
 
     def _rsync(self, from_: str, to_: str) -> None:
@@ -1383,10 +1422,11 @@ class TogaMain(CommandLineManager):
 
     def _filter_rejection_log(self) -> None:
         """
-        Filters the rejection log left from the previous run(s) 
+        Filters the rejection log left from the previous run(s)
         by removing items discarded at steps subjected to rerunning
         """
         from .constants import Headers
+
         if not os.path.exists(self.final_rejection_log):
             self._create_output_stub("final_rejection_log")
             return
@@ -1564,7 +1604,7 @@ class TogaMain(CommandLineManager):
                 self._to_log(
                     "Binary %s has no corresponding toga_main.py attribute; skipping"
                     % default_name,
-                    'warning'
+                    "warning",
                 )
                 continue
             if attr == "tree_binary" and self.use_raxml:
@@ -1606,7 +1646,7 @@ class TogaMain(CommandLineManager):
 
     def check_input_dir(self) -> None:
         """
-        If formatted input directory was provided, checks its contents 
+        If formatted input directory was provided, checks its contents
         and assigns the missing input file values
         """
         if self.input_dir is None:
@@ -1617,7 +1657,9 @@ class TogaMain(CommandLineManager):
                 "and --query_name are not provided"
             )
         if self.ref_2bit is None:
-            ref_genome_name: str = NameTemplates.TWOBIT.format(self.ref_name, self.ref_name)
+            ref_genome_name: str = NameTemplates.TWOBIT.format(
+                self.ref_name, self.ref_name
+            )
             ref_genome: str = os.path.join(self.input_dir, ref_genome_name)
             if not os.path.exists(ref_genome):
                 self._die(
@@ -1627,7 +1669,9 @@ class TogaMain(CommandLineManager):
                 )
             self.ref_2bit = ref_genome
         if self.query_2bit is None:
-            query_genome_name: str = NameTemplates.TWOBIT.format(self.query_name, self.query_name)
+            query_genome_name: str = NameTemplates.TWOBIT.format(
+                self.query_name, self.query_name
+            )
             query_genome: str = os.path.join(self.input_dir, query_genome_name)
             if not os.path.exists(query_genome):
                 self._die(
@@ -1638,31 +1682,27 @@ class TogaMain(CommandLineManager):
             self.query_2bit = query_genome
         if not self.chain_file:
             chains_name: str = NameTemplates.CHAINS.format(
-                self.ref_name,
-                self.query_name,
-                self.ref_name, 
-                self.query_name
+                self.ref_name, self.query_name, self.ref_name, self.query_name
             )
             chains: str = os.path.join(self.input_dir, chains_name)
             gz_chains_name: str = NameTemplates.CHAINS_GZ.format(
-                self.ref_name,
-                self.query_name,
-                self.ref_name, 
-                self.query_name
+                self.ref_name, self.query_name, self.ref_name, self.query_name
             )
             gz_chains: str = os.path.join(self.input_dir, gz_chains_name)
             if not os.path.exists(chains):
                 if not os.path.exists(gz_chains):
                     self._die(
-                    "Alignment chain file %s is missing from input "
-                    "directory %s, with no alternatives provided"
-                    % (chains_name, self.input_dir)
-                )
+                        "Alignment chain file %s is missing from input "
+                        "directory %s, with no alternatives provided"
+                        % (chains_name, self.input_dir)
+                    )
                 self.chain_file = gz_chains
             else:
                 self.chain_file = chains
         if self.ref_annotation is None:
-            ref_annotation_name: str = NameTemplates.REF_ANNOT.format(self.ref_name, self.ref_name)
+            ref_annotation_name: str = NameTemplates.REF_ANNOT.format(
+                self.ref_name, self.ref_name
+            )
             ref_annotation: str = os.path.join(self.input_dir, ref_annotation_name)
             if not os.path.exists(ref_annotation):
                 self._die(
@@ -1672,29 +1712,27 @@ class TogaMain(CommandLineManager):
                 )
             self.ref_annotation = ref_annotation
         if self.isoform_file is None and not self.no_isoform_file:
-            ref_isoforms_name: str = NameTemplates.REF_ISOFORMS.format(self.ref_name, self.ref_name)
-            ref_isoforms: str = os.path.join(
-                self.input_dir, ref_isoforms_name
+            ref_isoforms_name: str = NameTemplates.REF_ISOFORMS.format(
+                self.ref_name, self.ref_name
             )
+            ref_isoforms: str = os.path.join(self.input_dir, ref_isoforms_name)
             if not os.path.exists(ref_isoforms):
                 self._die(
                     "Reference isoform file %s is missing from input "
                     "directory %s, with no alternatives provided and "
-                    "no explicit deprecation"
-                    % (ref_isoforms_name, self.input_dir)
+                    "no explicit deprecation" % (ref_isoforms_name, self.input_dir)
                 )
             self.isoform_file = ref_isoforms
         if self.u12_file is None and not self.no_u12_file:
-            u12_file_name: str = NameTemplates.REF_U12.format(self.ref_name, self.ref_name)
-            u12_file: str = os.path.join(
-                self.input_dir, u12_file_name
+            u12_file_name: str = NameTemplates.REF_U12.format(
+                self.ref_name, self.ref_name
             )
+            u12_file: str = os.path.join(self.input_dir, u12_file_name)
             if not os.path.exists(u12_file):
                 self._die(
                     "Reference U12 intron file %s is missing from input "
                     "directory %s, with no alternatives provided and "
-                    "no explicit deprecation"
-                    % (u12_file_name, self.input_dir)
+                    "no explicit deprecation" % (u12_file_name, self.input_dir)
                 )
             self.u12_file = u12_file
         if self.spliceai_dir is None and not self.no_spliceai:
@@ -1704,12 +1742,13 @@ class TogaMain(CommandLineManager):
                 self._die(
                     "SpliceAI output directory %s is missing from input "
                     "directory %s, with no alternatives provided and "
-                    "no explicit deprecation"
-                    % (spliceai_dir_name, self.input_dir)
+                    "no explicit deprecation" % (spliceai_dir_name, self.input_dir)
                 )
             self.spliceai_dir = spliceai_dir
         if self.ref_link_file is None:
-            links_name: str = NameTemplates.REF_LINKS.format(self.ref_name, self.ref_name)
+            links_name: str = NameTemplates.REF_LINKS.format(
+                self.ref_name, self.ref_name
+            )
             links: str = os.path.join(self.input_dir, links_name)
             if not os.path.exists(links):
                 self._to_log(
@@ -1721,6 +1760,43 @@ class TogaMain(CommandLineManager):
             else:
                 self.ref_link_file = links
 
+    def check_cesar_profiles(self) -> None:
+        """
+        Checks the CESAR2 profile directory content; if any profiles
+        are overriden with the command line arguments, replaces the
+        the corresponding
+        """
+        for (
+            cesar_attr_name,
+            default_value,
+        ) in NameTemplates.CESAR_PROFILE_VALUES.items():
+            curr_value: Union[str, None] = getattr(self, cesar_attr_name)
+            ## value was provided via command line;
+            ## explicitly arguments get preference -> proceed further
+            if curr_value is not None:
+                continue
+            ## no value provided explicitly; check the CESAR2 profile directory
+            ## if no directory was provided (likely will never happen due to default settings in toga2.py),
+            ## there is no value for the profile -> error-exit
+            if self.cesar_profile_dir is None:
+                self._die(
+                    (
+                        'Missing value for the "%s" attribute, with no CESAR2 profile directory '
+                        "provided. Either set the argument explicitly or "
+                    )
+                    % cesar_attr_name
+                )
+            expected_path: str = os.path.join(self.cesar_profile_dir, default_value)
+            if not os.path.exists(expected_path):
+                self._die(
+                    (
+                        'Missing value for the "%s" attribute, with the expected defailt missing '
+                        "from the profile directory %s. Please check the contents of the profile "
+                        "directory or provide the respective profile explicitly via command line"
+                    )
+                    % (cesar_attr_name, self.cesar_profile_dir)
+                )
+            self.__setattr__(cesar_attr_name, expected_path)
 
     def check_spliceai_files(self) -> None:
         """
@@ -1764,7 +1840,7 @@ class TogaMain(CommandLineManager):
             **Constants.UNIQUE_CONFIGS,
             **{
                 x: Constants.ALN_CONFIG.format(x)
-                for x in self.cesar_memory_bins#.split(",")
+                for x in self.cesar_memory_bins  # .split(",")
             },
         }
         for process, file in expected_configs.items():
@@ -1894,7 +1970,7 @@ class TogaMain(CommandLineManager):
         args: List[str] = [
             self.ref_annotation,
             self.bed_file_copy,
-            self.prefiltered_transcripts,
+            self.final_rejection_log,
             "-ln",
             self.project_id,
         ]
@@ -1972,7 +2048,7 @@ class TogaMain(CommandLineManager):
             "-j",
             f"{self.feature_job_num}",
             "-r",
-            self.feature_rejection_log,
+            self.final_rejection_log,
             "-ln",
             self.project_id,
         ]
@@ -2091,10 +2167,14 @@ class TogaMain(CommandLineManager):
         )
         rej_log: str = os.path.join(self.classification_dir, "rejection_report.tsv")
         if os.path.exists(rej_log):
-            rejection_move_cmd: str = f"mv {rej_log} {self.class_rejection_log}"
-            _ = self._exec(
-                rejection_move_cmd, "Moving classification rejection log failed"
-            )
+            with open(rej_log, "r") as ih, open(self.final_rejection_log, "a") as oh:
+                for line in ih:
+                    line = line.strip()
+                    oh.write(line + "\n")
+            # rejection_move_cmd: str = f"mv {rej_log} {self.class_rejection_log}"
+            # _ = self._exec(
+            #     rejection_move_cmd, "Moving classification rejection log failed"
+            # )
         else:
             self._to_log("No items were rejected at classification step")
         ## TODO: Here goes a sanity check
@@ -2157,7 +2237,7 @@ class TogaMain(CommandLineManager):
             "assembly_gap_size": self.assembly_gap_size,
             "paralog_report": self.paralog_report,
             "processed_pseudogene_report": self.processed_pseudogene_report,
-            "rejection_report": self.preprocessing_rejection_log,
+            "rejection_report": self.final_rejection_log,
             "log_name": self.project_id,
             "bigwig2wig_binary": self.bigwig2wig_binary,
             "verbose": True,
@@ -2244,7 +2324,9 @@ class TogaMain(CommandLineManager):
                 )
             rej_path: str = os.path.join(dir_path, "genes_rejection_reason.tsv")
             if os.path.exists(rej_path):
-                rej_aggr_cmd: str = f"{Constants.SETUP} cat {rej_path} >> {self.preprocessing_rejection_log}"
+                rej_aggr_cmd: str = (
+                    f"{Constants.SETUP} cat {rej_path} >> {self.final_rejection_log}"
+                )
                 _ = self._exec(
                     rej_aggr_cmd,
                     "Preprocessing step rejection log aggregation failed at batch %s"
@@ -2277,15 +2359,15 @@ class TogaMain(CommandLineManager):
             self.alignment_job_dir,
             self.alignment_res_dir,
             "-b",
-            ",".join(map(str, self.cesar_memory_bins)),#self.cesar_memory_bins,
+            ",".join(map(str, self.cesar_memory_bins)),  # self.cesar_memory_bins,
             "-jb",
-            ",".join(map(str, self.job_nums_per_bin)),#self.job_nums_per_bin
+            ",".join(map(str, self.job_nums_per_bin)),  # self.job_nums_per_bin
             "-cs",
             self.cesar_binary,
             "-m",
             self.matrix_file,
             "-rr",
-            self.redundancy_rejection_log,
+            self.final_rejection_log,
             "-scm",
             self.spliceai_correction_mode,
         ]
@@ -2400,6 +2482,19 @@ class TogaMain(CommandLineManager):
                     "warning",
                 )
                 self.failed_alignment_batches.append(dir_name)
+                # if dir_name == "batch0":
+                #     quq = os.path.join(dir_path, "log.txt")
+                #     print("PRINTING CESAR LOG")
+                #     print(self._exec(f"tail -n30 {quq}", "MUST NOT FAIL!!"))
+                #     puq = os.path.join(self.nextflow_dir, "cesar_align_TOGA2_3", "cesar_align_TOGA2_3.log")
+                #     print("PRINTING NEXTFLOW CASH")
+                #     print(self._exec(f"tail -n150 {puq}", "MUST NOT FAIL EITHER!!"))
+                #     peq = os.path.join(self.nextflow_dir, ".nextflow.log")
+                #     print("PRINTING NEXTFLOW LOG")
+                #     print(self._exec(f"tail -n150 {peq}", "THIS ALSO SHOULD NOT"))
+                #     print("MANUAL CESAR CONTROL!!!!")
+                #     kek = os.path.join(self.tmp, "cesar_alignment_jobs", "batch0.ex")
+                #     print(self._exec("grep cesar_exec %s | xargs -I{} /bin/bash -c \"{} -v\"" % kek, "CESAR WILL FALL!!"))
             for out_file in Constants.CESAR_OUT_FILES:
                 batch_path: str = os.path.join(dir_path, out_file)
                 out_file_slot: str = Constants.CESAR_FILE_TO_DEST[out_file]
@@ -2415,6 +2510,7 @@ class TogaMain(CommandLineManager):
 
     def aggregate_rejection_reports(self) -> None:
         """
+        DEPRECATED since v2.0.7b: Rejection log is now added to inplace
         Aggregates rejection reports from various stages into a final report
         """
         if os.path.exists(self.final_rejection_log):
@@ -2471,7 +2567,7 @@ class TogaMain(CommandLineManager):
             "--insufficiently_covered_orthologs",
             self.discarded_overextended_projections,
             "-rl",
-            self.gene_inference_rejection_log,
+            self.final_rejection_log,
         ]
         if self.isoform_file is not None:
             # args.extend(('-r', self.cds_bed_file, '-i', self.isoform_file))
@@ -2480,6 +2576,8 @@ class TogaMain(CommandLineManager):
             args.extend(("-p", self.paralog_report))
         if os.path.exists(self.processed_pseudogene_report):
             args.extend(("-pp", self.processed_pseudogene_report))
+        if self.debug:
+            args.append("--debug")
         QueryGeneCollapser(args, standalone_mode=False)
         if os.path.exists(self.gene_inference_rejection_log):
             rej_aggr_cmd: str = (
@@ -2532,7 +2630,7 @@ class TogaMain(CommandLineManager):
     def convert_fasta_to_hdf5(self) -> None:
         """Converts TOGA2 output FASTA file into an HDF5 storage"""
         from .pairwise_fasta_to_hdf5 import FastaToHdf5Converter
-        
+
         in_file: str = self.aa_fasta
         out_file: str = self.aa_hdf5
         args: List[str] = [in_file, out_file, "-ln", self.project_id, "-v"]
@@ -2988,6 +3086,8 @@ class TogaMain(CommandLineManager):
             self.query_annotation_final,
             self.gene_loss_summary,
         ]
+        if self.isoform_file is not None:
+            args.extend(("--isoform_file", self.isoform_file))
         if os.path.exists(self.paralog_report):
             args.extend(("--paralogs", self.paralog_report))
         if os.path.exists(self.processed_pseudogene_report):
@@ -3058,13 +3158,14 @@ class TogaMain(CommandLineManager):
         from postoga.run import TogaDir
 
         from .shared import TogaDirConfig  ## TODO: Create
+
         ## TogaDir accepts Argparse parser as a sole argument by default,
         ## which can be emulated with TogaDirConfig
         config: TogaDirConfig = TogaDirConfig(
             self.output,
             with_isoforms=self.query_genes_for_gtf,
             target=("utr" if not self.skip_utr else "bed"),
-            outdir=self.postoga_tmp
+            outdir=self.postoga_tmp,
         )
         TogaDir(config).run()
         sys.path.remove(LOCATION)
@@ -3075,9 +3176,14 @@ class TogaMain(CommandLineManager):
             self._die("No Postoga output found in the output directory")
         if len(postoga_contents) > 1:
             self._die("Multiple alternative Postoga output directories found")
-        postoga_table_tmp: str = os.path.join(self.postoga_tmp, postoga_contents[0],"toga.table.gz")
+        postoga_table_tmp: str = os.path.join(
+            self.postoga_tmp, postoga_contents[0], "toga.table.gz"
+        )
         if not os.path.exists(postoga_table_tmp):
-            self._die("Postoga output table is missing from the expected location %s" % postoga_table_tmp)
+            self._die(
+                "Postoga output table is missing from the expected location %s"
+                % postoga_table_tmp
+            )
         self._mv(postoga_table_tmp, self.postoga_table)
 
     def write_failed_batches(self) -> None:
@@ -3132,13 +3238,31 @@ class TogaMain(CommandLineManager):
 
     def get_summary(self) -> None:
         """Prepares a summary file of all successfully completed steps"""
-        summary: str = self.result_checker.summary(
-            self.ref_2bit,
-            self.query_2bit,
-            self.chain_file,
-            self.ref_annotation,
-            self.output,
-        )
+        from .results_checks import SummaryStat
+
+        # summary: str = self.result_checker.summary(
+        #     self.ref_2bit,
+        #     self.query_2bit,
+        #     self.chain_file,
+        #     self.ref_annotation,
+        #     self.output,
+        # )
+        summary: str = SummaryStat(
+            ref_2bit=self.ref_2bit,
+            query_2bit=self.query_2bit,
+            chain_file=self.chain_file,
+            ref_annotation=self.bed_file_copy,
+            output=self.output,
+            orthology_threshold=self.orthology_threshold,
+            orth_probs_file=self.pred_scores,
+            accepted_loss_symbols=self.accepted_loss_symbols,
+            loss_summary=self.gene_loss_summary,
+            query_genes=self.query_genes,
+            orthology_classification=self.orth_resolution_report,
+            isoform_file=self.isoform_file,
+            u12_file=self.u12_file,
+            spliceai_dir=self.spliceai_dir,
+        ).summary()
         self._to_log("TOGA2 run summary:\n%s\n" % summary)
         self._to_log("The same summary can be found at %s" % self.summary)
         with open(self.summary, "w") as h:

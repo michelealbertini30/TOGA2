@@ -11,6 +11,9 @@ __credits__ = "Bogdan M. Kirilenko"
 class Constants:
     LOCATION = os.path.dirname(__file__)
 
+    CONFIG_FORMATS: Tuple[str] = ("json", "tsv", "yaml")
+    YAML: str = "yaml"
+
     BINARIES_TO_CHECK: Dict[str, str] = {
         "bigbedtobed_binary": "bigBedToBed",
         "bedtobigbed_binary": "bedToBigBed",
@@ -112,7 +115,7 @@ class Constants:
     DEFAULT_LOSS_SYMBOLS: Tuple[str, ...] = ("FI", "I", "PI", "UL")
 
     FORMATTER: Formatter = Formatter(
-        "[{asctime}][{filename}] - {levelname}: {message}",
+        "[{asctime}][{toga_module}] - {levelname}: {message}",
         style="{",
         datefmt="%Y-%m-%d %H:%M:%S",
     )
@@ -196,7 +199,6 @@ class Constants:
         ),
         "gene_inference": (
             "all_deprecated_projs",
-            "final_rejection_log",
             "query_genes_raw",
             "query_genes_bed_raw",
             "discarded_overextended_projections",
@@ -213,16 +215,18 @@ class Constants:
             "orthology_job_dir",
             "orthology_input_dir",
             "orthology_res_dir",
-            "resolved_leaves_file",
-            "orth_resolution_report",
-            "one2zero_genes",
+            # "resolved_leaves_file",
+            # "orth_resolution_report",
+            # "one2zero_genes",
             "aa_hdf5",
             "orth_resolution_raw",
         ),
         "summarize_trees": (
             "resolved_leaves_file",
+            "unresolved_clades_file",
             "orth_resolution_report",
             "one2zero_genes",
+            "rejected_at_tree_step",
         ),
         "finalize": (
             "query_annotation_final",
@@ -251,6 +255,7 @@ class Constants:
         "CHROM_UNALIGNED": "feature_extraction",
         "TRANSCRIPT_UNALIGNED": "feature_extraction",
         "NO_PROJ": "classification",
+        "PPGENE_ONLY": "classification",
         "INSUFFICIENT_CHAIN_SCORE": "classification",
         "CHAIN_LIMIT_EXCEEDED": "preprocessing",
         "EXCEEDS_MEMORY": "preprocessing",
@@ -535,6 +540,9 @@ class RejectionReasons:
     UNCLASS_REJ_REASON: str = "\t".join(
         ("TRANSCRIPT", "{}", "0", "No classifiable projections found", "NO_PROJ", "M")
     )
+    PPGENE_ONLY_REASON: str = "\t".join(
+        ("TRANSCRIPT", "{}", "0", "Only processed pseudogene projections found", "PPGENE_ONLY", "M")
+    )
     UNDERSCORED_REJ_REASON: str = "\t".join(
         (
             "PROJECTION",
@@ -656,7 +664,7 @@ class RejectionReasons:
     )
     ORTH_REJ_TEMPLATE: str = "\t".join(
         (
-            "TRANSCRIPT",
+            "PROJECTION",
             "{}",
             "0",
             "Rejected after the gene resolution step",
@@ -879,6 +887,16 @@ class NameTemplates:
     REF_LINKS: str = os.path.join(
         "{}", "TOGA2", "currentAnnotation", "{}.toga.links.tsv"
     )
+    CESAR_PROFILE_VALUES: Dict[str, str] = {
+        "cesar_canon_u2_acceptor": "canon_U2_acceptor.tsv",
+        "cesar_canon_u2_donor": "canon_U2_donor.tsv",
+        "cesar_non_canon_u2_acceptor": "nonCanon_U2_acceptor.tsv",
+        "cesar_non_canon_u2_donor": "nonCanon_U2_donor.tsv",
+        "cesar_canon_u12_acceptor": "canon_U12_acceptor.tsv",
+        "cesar_canon_u12_donor": "canon_U12_donor.tsv",
+        "cesar_non_canon_u12_acceptor": "nonCanon_U12_acceptor.tsv",
+        "cesar_non_canon_u12_donor": "nonCanon_U12_donor.tsv",
+    }
 
 
 # Standalone constants #
@@ -1086,6 +1104,7 @@ TOGA2_SLOTS: Tuple[str, ...] = (
     "leave_missing_stop",
     "consider_alt_frame",
     "spliceai_correction_mode",
+    "cesar_profile_dir",
     "cesar_canon_u2_acceptor",
     "cesar_canon_u2_donor",
     "cesar_non_canon_u2_acceptor",
@@ -1117,12 +1136,15 @@ TOGA2_SLOTS: Tuple[str, ...] = (
     "max_number_of_retries",
     "nextflow_config_dir",
     "max_parallel_time",
+    "project_arg_format",
     "keep_nextflow_log",
     "output",
     "keep_tmp",
     "project_name",
     "project_id",
+    "timestamp",
     "v",
+    "debug",
     "email",
     "mailx_binary",
     "toga1",
@@ -1328,6 +1350,7 @@ TOGA2_SLOT2ARG: Dict[str, str] = {
     "minimal_covered_fraction": "minimal_covered_fraction",
     "exon_locus_flank": "exon_locus_flank",
     "assembly_gap_size": "assembly_gap_size",
+    "cesar_profile_dir": "cesar_profile_dir",
     "cesar_canon_u2_acceptor": "cesar_canon_u2_acceptor",
     "cesar_canon_u2_donor": "cesar_canon_u2_donor",
     "cesar_non_canon_u2_acceptor": "cesar_non_canon_u2_acceptor",
@@ -1385,8 +1408,10 @@ TOGA2_SLOT2ARG: Dict[str, str] = {
     "toga1_plus_cesar": "toga1_plus_corrected_cesar",
     "output": "output",
     "project_name": "project_name",
+    "project_arg_format": "project_arg_format",
     "keep_tmp": "keep_temporary_files",
     "v": "verbose",
+    "debug": "debug",
     "email": "email",
     "mailx_binary": "mailx_binary",
     "fatotwobit_binary": "fatotwobit_binary",

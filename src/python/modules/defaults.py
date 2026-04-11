@@ -22,10 +22,14 @@ DEFAULT_ARGS: Dict[str, Union[str, int, float, bool, None]] = {
     "ref_annotation": os.path.join(
         TEST_INPUT, "hg38", "TOGA2", "currentAnnotation", "hg38.toga.transcripts.bed"
     ),
-    "isoform_file": None,
+    "isoform_file": os.path.join(
+        TEST_INPUT, "hg38", "TOGA2", "currentAnnotation", "hg38.toga.isoforms.tsv"
+    ),
     "no_isoform_file": False,
     "u12_file": None,
-    "no_u12_file": False,
+    "no_u12_file": os.path.join(
+        TEST_INPUT, "hg38", "TOGA2", "currentAnnotation", "hg38.toga.U12introns.tsv"
+    ),
     "spliceai_dir": None,
     "no_spliceai": False,
     "input_directory": None,
@@ -59,20 +63,15 @@ DEFAULT_ARGS: Dict[str, Union[str, int, float, bool, None]] = {
     "minimal_covered_fraction": 0.0,
     "exon_locus_flank": 100,
     "assembly_gap_size": 10,
-    "cesar_canon_u2_acceptor": os.path.join(HUMAN_PROFILES, "canon_U2_acceptor.tsv"),
-    "cesar_canon_u2_donor": os.path.join(HUMAN_PROFILES, "canon_U2_donor.tsv"),
-    "cesar_non_canon_u2_acceptor": os.path.join(
-        HUMAN_PROFILES, "nonCanon_U2_acceptor.tsv"
-    ),
-    "cesar_non_canon_u2_donor": os.path.join(HUMAN_PROFILES, "nonCanon_U2_donor.tsv"),
-    "cesar_canon_u12_acceptor": os.path.join(HUMAN_PROFILES, "canon_U12_acceptor.tsv"),
-    "cesar_canon_u12_donor": os.path.join(HUMAN_PROFILES, "canon_U12_donor.tsv"),
-    "cesar_non_canon_u12_acceptor": os.path.join(
-        HUMAN_PROFILES, "equiprobable_acceptor.tsv"
-    ),
-    "cesar_non_canon_u12_donor": os.path.join(
-        HUMAN_PROFILES, "non_canon_U12_donor.tsv"
-    ),
+    "cesar_profile_dir": HUMAN_PROFILES,
+    "cesar_canon_u2_acceptor": None,#os.path.join(HUMAN_PROFILES, "canon_U2_acceptor.tsv"),
+    "cesar_canon_u2_donor": None,#os.path.join(HUMAN_PROFILES, "canon_U2_donor.tsv"),
+    "cesar_non_canon_u2_acceptor": None,#os.path.join(HUMAN_PROFILES, "nonCanon_U2_acceptor.tsv"),
+    "cesar_non_canon_u2_donor": None,#os.path.join(HUMAN_PROFILES, "nonCanon_U2_donor.tsv"),
+    "cesar_canon_u12_acceptor": None,#os.path.join(HUMAN_PROFILES, "canon_U12_acceptor.tsv"),
+    "cesar_canon_u12_donor": None,#os.path.join(HUMAN_PROFILES, "canon_U12_donor.tsv"),
+    "cesar_non_canon_u12_acceptor": None,#os.path.join(HUMAN_PROFILES, "equiprobable_acceptor.tsv"),
+    "cesar_non_canon_u12_donor": None,#os.path.join(HUMAN_PROFILES, "non_canon_U12_donor.tsv"),
     "cesar_first_acceptor": os.path.join(PROFILES, "firstCodon_profile.tsv"),
     "cesar_last_donor": os.path.join(PROFILES, "lastCodon_profile.tsv"),
     "joint_splice_site_treatment": False,
@@ -100,7 +99,7 @@ DEFAULT_ARGS: Dict[str, Union[str, int, float, bool, None]] = {
     "max_clique_size": 50,
     "orthology_jobs": 100,
     "prank_binary": None,
-    "tree_binary": None,
+    "tree_binary": os.path.join(BIN, "iqtree2"),
     "tree_cpus": 1,
     "utr_abs_threshold": 3000,
     "utr_rel_threshold": 2.5,
@@ -120,8 +119,10 @@ DEFAULT_ARGS: Dict[str, Union[str, int, float, bool, None]] = {
     "toga1_plus_corrected_cesar": False,
     "output": None,
     "project_name": "TOGA2",
+    "project_arg_format": "yaml",
     "keep_temporary_files": False,
     "verbose": True,
+    "debug": False,
     "email": None,
     "mailx_binary": None,
     "fatotwobit_binary": None,

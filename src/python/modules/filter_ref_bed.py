@@ -38,7 +38,7 @@ def consistent_name(name: str) -> bool:
 @click.argument("ref_bed", type=click.File("r", lazy=True), metavar="REF_BED")
 @click.argument("output", type=click.File("w", lazy=True), metavar="OUTPUT")
 @click.argument(
-    "rejection_log", type=click.File("w", lazy=True), metavar="REJECTION_LOG"
+    "rejection_log", type=click.File("a", lazy=True), metavar="REJECTION_LOG"
 )
 @click.option(
     "--contigs",
@@ -124,7 +124,7 @@ class AnnotationFilter(CommandLineManager):
         verbose: Optional[bool],
     ) -> None:
         self.v: bool = verbose
-        self.set_logging(log_name)
+        self.set_logging(name=log_name, toga_module="ref_bed_filter")
 
         self.ref_bed: click.File = ref_bed
         self.output: click.File = output

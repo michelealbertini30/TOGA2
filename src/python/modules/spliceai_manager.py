@@ -25,6 +25,8 @@ from .parallel_jobs_manager import (
 )
 from .shared import CommandLineManager, dir_name_by_date, get_upper_dir
 
+
+## GLOBAL TODO: Move all the constants to a separate storage class in constants.py
 PYTHON_DIR: str = get_upper_dir(__file__, 2)
 EXEC_SCRIPT: str = os.path.join(PYTHON_DIR, "predict_with_spliceai.py")
 CONTIG_SIZE_SCRIPT: str = os.path.join(PYTHON_DIR, "get_contig_sizes.py")
@@ -47,6 +49,22 @@ DONOR_PLUS: str = "spliceAiDonorPlus.bw"
 DONOR_MINUS: str = "spliceAiDonorMinus"
 ACC_PLUS: str = "spliceAiAcceptorPlus"
 ACC_MINUS: str = "spliceAiAcceptorMinus"
+
+## TODO: Add --resume_from and --halt_at functionality here and to toga2.py
+PIPELINE_STEPS: Tuple[str] = ("all", "prepare", "schedule", "run", "aggregate")
+RESUME_ORDER: Dict[str, str] = {x: i for i, x in enumerate(PIPELINE_STEPS)}
+
+def batch_num(file: str, template: str) -> int:
+    """Returns the batch number from the batch file name
+
+    Args:
+        file: a name of the batch output file
+        template: SpliceAi file template to remove
+
+    Returns:
+        Batch number as integer
+    """
+    return file.split("@")[-1].replace(template, "").replace("batch", "").replace(".wig", "")
 
 
 class SpliceAiManager(CommandLineManager):
@@ -78,6 +96,8 @@ class SpliceAiManager(CommandLineManager):
         "tmp_fa",
         "unmasked_twobit",
         "chrom_sizes",
+        "resume_from",
+        "halt_at",
         "twobittofa_binary",
         "fatotwobit_binary",
         "wigtobigwig_binary",
@@ -103,10 +123,12 @@ class SpliceAiManager(CommandLineManager):
         max_parallel_time: Optional[int],
         cluster_queue_name: Optional[str],
         memory_limit: Optional[int],
+        resume_from: Optional[str],
+        halt_at: Optional[str],
         twobittofa_binary: Optional[click.Path],
         fatotwobit_binary: Optional[click.Path],
         wigtobigwig_binary: Optional[click.Path],
-        project_name: Optional[str],
+        project_name: Optional[Union[str, None]],
         keep_temporary_files: Optional[bool],
         verbose: Optional[bool],
     ) -> None:
@@ -120,11 +142,16 @@ class SpliceAiManager(CommandLineManager):
             else self._abspath(self.project_name)
         )
         self._mkdir(self.output)
-        self.tmp_dir: str = os.path.join(self.output, f"tmp_{self.project_name}")
+        # self.tmp_dir: str = os.path.join(self.output, f"tmp_{self.project_name}")
+        self.tmp_dir: str = os.path.join(self.output, "tmp")
         self.nextflow_dir: str = os.path.join(self.tmp_dir, "nextflow")
         self.log_file: str = os.path.join(self.output, f"{self.project_name}.txt")
         self.set_logging()
+        self._to_log("Initializing SpliceAI annotation module")
         self.logger.propagate = False
+
+        self.resume_from: str = resume_from
+        self.halt_at: str = halt_at
 
         self.twobit: click.Path = query_2bit
 
@@ -178,10 +205,46 @@ class SpliceAiManager(CommandLineManager):
 
     def run(self) -> None:
         """Entry point"""
-        self.prepare_ref_genome()
-        self.schedule_jobs()
-        self.run_jobs()
-        self.aggregate_jobs()
+        if self._execute_step("prepare"):
+            self._to_log("Preparing input data for SpliceAI")
+            self.prepare_ref_genome()
+        else:
+            if self.halt_at == "prepare":
+                self._to_log(
+                    "Finishing SpliceAI annotation before the data preparation step as suggested"
+                )
+                self._exit()
+            self._to_log("Skipping the data preparation step as suggested")
+        if self._execute_step("schedule"):
+            self._to_log("Scheduling parallel jobs")
+            self.schedule_jobs()
+        else:
+            if self.halt_at == "schedule":
+                self._to_log(
+                    "Finishing SpliceAI annotation before the job scheduling step as suggested"
+                )
+                self._exit()
+            self._to_log("Skipping the job scheduling step as suggested")
+        if self._execute_step("run"):
+            self._to_log("Preparing to run the parallel SpliceAI jobs")
+            self.run_jobs()
+        else:
+            if self.halt_at == "run":
+                self._to_log(
+                    "Finishing SpliceAI annotation before the execution step as suggested"
+                )
+                self._exit()
+            self._to_log("Skipping the execution step as suggested")
+        if self._execute_step("aggregate"):
+            self._to_log("Aggregating the results")
+            self.aggregate_jobs()
+        else:
+            if self.halt_at == "aggregate":
+                self._to_log(
+                    "Finishing SpliceAI annotation before the results aggregation step as suggested"
+                )
+                self._exit()
+            self._to_log("Skipping the results aggregation step as suggested")
 
     def prepare_ref_genome(self) -> None:
         """
@@ -242,6 +305,8 @@ class SpliceAiManager(CommandLineManager):
                 if length >= self.chunk_size:
                     ## longer sequences are split into individual chunks
                     chunk_num: int = length // self.chunk_size
+                    if chunk_num * self.chunk_size < length:
+                        chunk_num += 1
                     for s in range(0, chunk_num):
                         # for s in range(0, length, self.chunk_size):
                         start: int = s * self.chunk_size
@@ -333,7 +398,8 @@ class SpliceAiManager(CommandLineManager):
         for bucket, intervals in bin2chunks.items():
             if not intervals:
                 continue
-            bed_file: str = os.path.join(self.bed_dir, f"batch{self.chunk_num}.bed")
+            batch_prefix: str = f"batch{self.chunk_num}"
+            bed_file: str = os.path.join(self.bed_dir, f"{batch_prefix}.bed")
             with open(bed_file, "w") as h:
                 for interval in intervals:
                     ## record each chunk twice, once for each strand
@@ -348,7 +414,8 @@ class SpliceAiManager(CommandLineManager):
             ## add the resulting command to the job list
             cmd: str = (
                 f"{EXEC_SCRIPT} {self.unmasked_twobit} {bed_file} "
-                f"--round_to {self.round_to} --min_prob {self.min_prob} -o {self.tmp_dir} "
+                f"--round_to {self.round_to} --min_prob {self.min_prob} "
+                f"-o {self.tmp_dir} -b {batch_prefix} "
                 f"--twobittofa_binary {self.twobittofa_binary} "
                 f"--wigtobigwig_binary {self.wigtobigwig_binary}"
             )
@@ -402,6 +469,7 @@ class SpliceAiManager(CommandLineManager):
         }
         if self.nextflow_config_file is not None:
             manager_data["nexflow_config_file"] = self.nextflow_config_file
+        self._to_log("Launching the parallel SpliceAI jobs")
         try:
             job_manager.execute_jobs(
                 self.job_list,
@@ -428,10 +496,54 @@ class SpliceAiManager(CommandLineManager):
         self._to_log("Aggregating SpliceAI prediction results")
         for template in FILE_NAME_TEMPLATES:
             final_file: str = os.path.join(self.output, f"spliceAi{template}.bw")
-            stub_path: str = os.path.join(self.tmp_dir, f"*{template}.wig")
             tmp_aggr_wig: str = os.path.join(self.tmp_dir, f"spliceAi{template}.wig")
-            cmd: str = (
-                f"cat {stub_path} > {tmp_aggr_wig} && "
-                f"{self.wigtobigwig_binary} {tmp_aggr_wig} {self.chrom_sizes} {final_file}"
+            files_to_aggr: List[str] = [
+                x for x in os.listdir(self.tmp_dir) if template in x and "spliceAi" not in x
+            ]
+            # files_to_aggr.sort(
+            #     key=lambda x: int(x.replace(template, "").replace("batch", "").replace(".wig", ""))
+            # )
+            # with open(tmp_aggr_wig, "w"):
+            #     pass
+            # for file in files_to_aggr:
+            #     filepath: str = os.path.join(self.tmp_dir, file)
+            #     if "batch0" in file:
+            #         add_cmd: str = f"cat {filepath} > {tmp_aggr_wig}"
+            #     else:
+            #         add_cmd: str = f"cat {filepath} >> {tmp_aggr_wig}"
+                # add_cmd = f"grep -v fixedStep {filepath} >> {tmp_aggr_wig}"
+                # _ = self._exec(add_cmd, f"Adding file {filepath} to the main Wiggle stub failed")
+                        ## sort the files by chromosome
+            chrom2output: Dict[str, List[str]] = defaultdict(list)
+            for file in files_to_aggr:
+                chrom_name: str = "@".join(file.split("@")[:-1])
+                chrom2output[chrom_name].append(file)
+            for chrom, chrom_files_to_aggr in chrom2output.items():
+                chrom_files_to_aggr.sort(key=lambda x: batch_num(x, template))
+                for file in chrom_files_to_aggr:
+                    filepath: str = os.path.join(self.tmp_dir, file)
+                    if not os.path.exists(tmp_aggr_wig) or os.stat(tmp_aggr_wig).st_size == 0:
+                        add_cmd: str = f"cat {filepath} > {tmp_aggr_wig}"
+                    else:
+                        add_cmd: str = f"cat {filepath} >> {tmp_aggr_wig}"
+                    _ = self._exec(add_cmd, f"Adding file {filepath} to the main Wiggle stub failed")
+            convert_cmd: str = f"{self.wigtobigwig_binary} {tmp_aggr_wig} {self.chrom_sizes} {final_file}"
+            _ = self._exec(
+                convert_cmd, 
+                "Wiggle to BigWig convertion failed for file %s" % tmp_aggr_wig,
             )
-            _ = self._exec(cmd, "File aggregation for %s failed:" % template)
+
+    def _execute_step(self, step: str):
+        """
+        Defines whether the current step is to be executed based on 'resume' and 'halt' options
+        """
+        if step not in RESUME_ORDER:
+            self._die("Improper step name provided")
+        regular_start: bool = self.resume_from == "all"
+        regular_finish: bool = self.halt_at == "all"
+        step: int = RESUME_ORDER[step]
+        resume_step: int = RESUME_ORDER[self.resume_from]
+        halt_step: int = RESUME_ORDER[self.halt_at]
+        exec_started: bool = resume_step <= step or regular_start
+        exec_not_finished: bool = step < halt_step or regular_finish
+        return exec_started and exec_not_finished

@@ -307,6 +307,9 @@ class PreprocessingScheduler(CommandLineManager):
 
         self.run()
 
+    def set_logging(self, log_name: Union[str, None]) -> None:
+        super().set_logging(name=log_name, toga_module="preprocessing_scheduler")
+
     def run(self) -> None:
         """ """
         ## create output directory
@@ -624,7 +627,7 @@ class PreprocessingScheduler(CommandLineManager):
         """
         if not self.rejected_transcripts:
             return
-        with open(self.rejection_report, "w") as h:
+        with open(self.rejection_report, "a") as h:
             for line in self.rejected_transcripts:
                 h.write(line + "\n")
 
