@@ -390,7 +390,7 @@ class FinalOrthologyResolver(CommandLineManager):
                     if query_tr in self.rejected_items:
                         self._to_log(
                             "Projection %s has been added to the rejection log at least twice" % query_tr,
-                            "WARNING"
+                            "warning"
                         )
                     self.rejected_items.add(query_tr) ## try!
                     recorded_lines: bool = False
@@ -422,7 +422,7 @@ class FinalOrthologyResolver(CommandLineManager):
                             self._to_log(
                                 "Projection %s has been added to the rejection log at least twice" 
                                 % other_query_tr,
-                                "WARNING"
+                                "warning"
                             )
                         self.rejected_items.add(other_query_tr)
                         continue
@@ -534,10 +534,10 @@ class FinalOrthologyResolver(CommandLineManager):
                     "Projection %s rendered orphan after the gene tree step" % orphan_tr,
                     "warning",
                 )
-                self._to_log(
-                    "Projection %s has been added to the rejection log at least twice" % orphan_tr,
-                    "WARNING"
-                )
+                # self._to_log(
+                #     "Projection %s has been added to the rejection log at least twice" % orphan_tr,
+                #     "warning"
+                # )
                 self.rejected_items.add(orphan_tr)
 
     def write_output(self) -> None:
