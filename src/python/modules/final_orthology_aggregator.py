@@ -366,6 +366,17 @@ class FinalOrthologyResolver(CommandLineManager):
             del self.q2r[query_gene]
             self.removed_genes.add(ref_gene)
             self.removed_genes.add(query_gene)
+            for any_ref_tr in self.ref_gene2tr[ref_gene]:
+                for any_query_tr in self.tr2proj[any_ref_tr]:
+                    any_query_gene: str = self.query_tr2gene[any_query_tr]
+                    if any_query_gene != query_gene:
+                        self._to_log(
+                            (
+                                "Removing projection %s since the progenitor transcript %s "
+                                "was rendered 1:1 after the gene tree step"
+                            ) % (any_query_tr, any_ref_tr)
+                        )
+                        self.rejected_items.add(any_query_tr)
             for ref_tr, query_tr in transcripts:
                 ## CAVEAT: Query transcript used  for gene tree reconstruction
                 ## might have come from a gene other than the newly established ortholog;
@@ -377,6 +388,7 @@ class FinalOrthologyResolver(CommandLineManager):
                         "Transcript %s is missing from the reference gene-to-transcript mapping"
                         % progenitor_tr
                     )
+
                 progenitor_gene: str = self.ref_tr2gene[progenitor_tr]
                 if progenitor_gene != ref_gene:
                     self._to_log(
