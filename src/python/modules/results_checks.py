@@ -97,7 +97,7 @@ Out of {ref_gene_num} reference genes, {num_with_func_orth} ({perc_with_func_ort
 #HEADER	QueryAssembly	no. annotated query genes	no. query retrogenes	no. lost genes in query	no. missing genes in query	no. ref genes with potentially functional orthologs	no. ref genes with potentially functional paralogs
 #SINGLELINESUMMARY   query {num_genes} {num_retro} {num_lost}  {num_missing}   {num_with_func_orth} {num_with_func_para}
 
-This data set was generated with TOGA2 version {version} (git commit {commit}) and the following input files:
+This data set was generated with TOGA2 version {version} (git commit XXXXX) and the following input files:
 * Reference genome: {ref_2bit}
 * Query genome: {query_2bit}
 * Genome alignment chain file: {chains}
@@ -1335,11 +1335,11 @@ class SummaryStat:
         self.version: str = __version__
         sys.path.remove(LOCATION)
 
-        import git
+        # import git
 
-        repo = git.Repo(LOCATION, search_parent_directories=True)
-        sha = repo.head.commit.hexsha
-        self.commit: str = repo.git.rev_parse(sha, short=7)
+        # repo = git.Repo(LOCATION, search_parent_directories=True)
+        # sha = repo.head.commit.hexsha
+        # self.commit: str = repo.git.rev_parse(sha, short=7)
 
     def summary(self) -> str:
         """Main summary method"""
@@ -1647,7 +1647,7 @@ class SummaryStat:
             num_with_func_para=num_with_func_para,
             perc_with_func_para=perc_with_func_para,
             version=self.version,
-            commit=self.commit,
+            # commit=self.commit,
             ref_2bit=self.ref_2bit,
             query_2bit=self.query_2bit,
             chains=self.chain_file,
