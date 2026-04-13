@@ -19,7 +19,7 @@ from .constants import Headers, RejectionReasons
 from .filter_ref_bed import consistent_name
 from .shared import CommandLineManager, dir_name_by_date, get_upper_dir, hex_dir_name
 
-logging.basicConfig(level=logging.INFO)
+logging.root.handlers = []
 
 DEFAULT_PREFIX: str = "TOGA2_ref_annotation"
 LEVEL: str = "level"
@@ -46,7 +46,8 @@ NUCS: Tuple[str, ...] = ("A", "T", "C", "G")
 N: str = "N"
 CANON: str = "canon"
 NONCANON: str = "nonCanon"
-SEP_DUMMY: str = 'n'
+SEP_DUMMY: str = "n"
+NAME: str = "name"
 
 TOGA2_ROOT: str = get_upper_dir(__file__, 4)
 DEFAULT_TWOBITTOFA: str = os.path.join(TOGA2_ROOT, "bin", "twoBitToFa")
@@ -70,18 +71,21 @@ EXON_BED6: str = "all_exons.bed6"
 FA_FOR_SLEASY: str = "all_exons.fasta"
 
 ATTR2BIN: Dict[str, str] = {
-    "twobittofa_binary" : "twoBitToFa",
+    "twobittofa_binary": "twoBitToFa",
     "fatotwobit_binary": "faToTwoBit",
     "intronic_binary": "intronIC",
 }
 DEFAULT_TWOBIT2FA: str = os.path.join(TOGA2_ROOT, "bin", "twoBitToFa")
 DEFAULT_FA2TWOBIT: str = os.path.join(TOGA2_ROOT, "bin", "faToTwoBit")
-DEFAULT_INTRONIC: str = os.path.join(TOGA2_ROOT, "bin", "intronIC", "intronIC", "intronIC.py")
+DEFAULT_INTRONIC: str = os.path.join(
+    TOGA2_ROOT, "bin", "intronIC", "intronIC", "intronIC.py"
+)
 BIN2DEFAULT: Dict[str, str] = {
     "twoBitToFa": DEFAULT_TWOBIT2FA,
     "faToTwoBit": DEFAULT_FA2TWOBIT,
-    "intronIC": DEFAULT_INTRONIC, 
+    "intronIC": DEFAULT_INTRONIC,
 }
+
 
 def add_prefix(template: str, prefix: Optional[Union[str, None]] = "") -> str:
     """Adds a prefix to the output file name
@@ -139,7 +143,6 @@ class InputProducer(CommandLineManager):
         "profiles",
         "profile_dir",
         "keep_tmp",
-
     )
 
     def __init__(
@@ -179,6 +182,7 @@ class InputProducer(CommandLineManager):
         self.output: str = (
             output if output is not None else hex_dir_name(DEFAULT_PREFIX)
         )
+        self.tmp_dir: str = os.path.join(self.output, dir_name_by_date("tmp"))
         self.keep_tmp: bool = keep_temporary
 
         self.filtered_annotation: os.PathLike = os.path.join(
@@ -210,18 +214,18 @@ class InputProducer(CommandLineManager):
         self.rejected_transcripts: List[str] = []
         self.rejected_lines: List[str] = []
 
-        self.tmp_dir: str = os.path.join(
-            self.output, dir_name_by_date("tmp")
-        )
-        self._mkdir(self.tmp_dir)
-    
+        self.run()
+
     def run(self) -> None:
         """Entry point"""
         ## checking all the necessary binaries
         self._to_log("Checking the necessary binaries")
         ## create output directory
+        self._to_log("Checking binaries")
+        self.check_binaries()
         self._to_log("Creating output directory")
         self._mkdir(self.output)
+        self._mkdir(self.tmp_dir)
         ## step 1: annotation file check
         self._to_log("Refining the reference annotation BED file")
         self.check_annotation()
@@ -265,7 +269,7 @@ class InputProducer(CommandLineManager):
         If no value is provided, the method searches for binary availability in $PATH.
         Once it is found, the execution permissions are further ensured.
 
-        The method throws error if no (executable)  instance is found. The only exception is 
+        The method throws error if no (executable)  instance is found. The only exception is
         intronIC absence if `--disable_intron_classification` flag was set
         """
         for attr, exp_name in ATTR2BIN.items():
@@ -274,7 +278,7 @@ class InputProducer(CommandLineManager):
                 self._to_log("Testing %s binary at %s" % (exp_name, binary))
                 if os.access(binary, os.X_OK):
                     self._to_log(
-                        "The provided binary is executable; using the stated %s instance" 
+                        "The provided binary is executable; using the stated %s instance"
                         % exp_name
                     )
                     setattr(self, attr, binary)
@@ -290,10 +294,8 @@ class InputProducer(CommandLineManager):
                     )
             else:
                 self._to_log(
-                    (
-                        "No %s executable was provided; "
-                        "looking for alternatives"
-                    ) % exp_name
+                    ("No %s executable was provided; looking for alternatives")
+                    % exp_name
                 )
             ## check for the default version in bin/
             default_binary: str = BIN2DEFAULT[exp_name]
@@ -304,7 +306,7 @@ class InputProducer(CommandLineManager):
                 )
                 if os.access(default_binary, os.X_OK):
                     self._to_log(
-                        "The found binary is executable; using the TOGA2-supplied %s instance" 
+                        "The found binary is executable; using the TOGA2-supplied %s instance"
                         % default_binary
                     )
                     setattr(self, attr, default_binary)
@@ -315,7 +317,7 @@ class InputProducer(CommandLineManager):
                 )
             else:
                 self._to_log(
-                    "%s is missing at %s; looking for alternatives in $PATH" 
+                    "%s is missing at %s; looking for alternatives in $PATH"
                     % (exp_name, default_binary)
                 )
             binary_in_path: Union[str, None] = which(exp_name)
@@ -326,7 +328,7 @@ class InputProducer(CommandLineManager):
                 )
                 if os.access(binary_in_path, os.X_OK):
                     self._to_log(
-                        "The found binary is executable; using the found %s instance" 
+                        "The found binary is executable; using the found %s instance"
                         % binary_in_path
                     )
                     setattr(self, attr, binary_in_path)
@@ -345,7 +347,8 @@ class InputProducer(CommandLineManager):
                 (
                     "No %s binary found in $PATH; "
                     "check your $PATH or provide a valid %s instance"
-                ) % (exp_name, exp_name)
+                )
+                % (exp_name, exp_name)
             )
 
     def check_annotation(self) -> None:
@@ -594,52 +597,56 @@ class InputProducer(CommandLineManager):
     def create_sleasy_input(self) -> None:
         """Creates a 2bit exon storage for SLEASY compatibility"""
 
-        self._to_log('Writing temporary BED6 file')
+        self._to_log("Writing temporary BED6 file")
         bed6_cmd: str = (
-            f"{self.bed2fraction_binary} -i {self.annot} -o {self.bed6_exons} "
-            "-m cds -n"
+            f"{self.bed2fraction_binary} -i {self.annot} -m cds -b | "
+            "sort -k4,4 -k5,5n | "
+            f"awk -F'\t' '{{print $1,$2,$3,$4\"_exon\"$5,$5,$6}}' > {self.bed6_exons}"
         )
         _ = self._exec(bed6_cmd, BED12TO6_ERR)
-        self._to_log('Writing temporary BED6 file complete')
+        self._to_log("Writing temporary BED6 file complete")
 
-        self._to_log('Extracting sequences from the 2bit file; might take time')
-        twobit2fa_cmd: str = f'{self.twobittofa_binary} -bed={self.bed6_exons} {self.twobit} stdout'
+        self._to_log("Extracting sequences from the 2bit file; might take time")
+        twobit2fa_cmd: str = (
+            f"{self.twobittofa_binary} -bed={self.bed6_exons} {self.twobit} stdout"
+        )
         fasta_lines: str = self._exec(
             twobit2fa_cmd, EXTRACTION_ERR_MSG, gather_stdout=True
         )
-        self._to_log('Sequence extraction complete')
-        
-        self._to_log('Writing temporary FASTA file')
+        self._to_log("Sequence extraction complete")
+
+        self._to_log("Writing temporary FASTA file")
         with open(self.fasta_for_sleasy, "w") as h:
-            name: str = ''
+            name: str = ""
             exon: int = 0
-            prev_name: str = ''
+            prev_name: str = ""
             prev_exon: int = 0
-            curr_seq: str = ''
+            curr_seq: str = ""
             new_exon: bool = True
-            for line in fasta_lines.split('\n'):
+            for line in fasta_lines.split("\n"):
                 if not line:
                     continue
-                if line[0] == '>':
-                    name, exon = line.lstrip('>').split('_exon')
+                if line[0] == ">":
+                    name, exon = line.lstrip(">").split("_exon")
                     # print(f'{name=}, {exon=}, {prev_name=}, {prev_exon=}')
                     if not prev_name:
                         prev_name = name
                     exon: int = int(exon)
                     if name != prev_name and prev_name:
                         # print(f'{prev_name=}, {name=}, {prev_exon=}, {exon=}')
-                        h.write('>' + prev_name + '\n' + curr_seq + '\n')
-                        curr_seq = ''
+                        h.write(">" + prev_name + "\n" + curr_seq + "\n")
+                        curr_seq = ""
                         prev_name = name
                         prev_exon = 0
                         # print(f'{prev_name=}, {name=}, {prev_exon=}, {exon=}')
                     if prev_exon >= exon:
                         self._die(
                             (
-                                'Temporary BED file was improperly sorted; '
-                                'check that twoBitToFa returned sequences as presented in the BED file. '
-                                'Troublemaker: %s, exons %i-%i'
-                            ) % (name, prev_exon, exon)
+                                "Temporary BED file was improperly sorted; "
+                                "check that twoBitToFa returned sequences as presented in the BED file. "
+                                "Troublemaker: %s, exons %i-%i"
+                            )
+                            % (name, prev_exon, exon)
                         )
                     prev_exon = exon
                     new_exon: bool = exon > 1
@@ -649,13 +656,15 @@ class InputProducer(CommandLineManager):
                     new_exon = False
                 curr_seq += line.upper()
             if curr_seq:
-                h.write('>' + prev_name + '\n' + curr_seq + '\n')
-        self._to_log('Writing temporary FASTA file complete')
-        
-        self._to_log('Converting reference exons into 2bit format')
-        fa2twobit_cmd: str = f'{self.fa2twobit} {self.fasta_for_sleasy} {self.sleasy_2bit}'
+                h.write(">" + prev_name + "\n" + curr_seq + "\n")
+        self._to_log("Writing temporary FASTA file complete")
+
+        self._to_log("Converting reference exons into 2bit format")
+        fa2twobit_cmd: str = (
+            f"{self.fatotwobit_binary} {self.fasta_for_sleasy} {self.sleasy_2bit}"
+        )
         _ = self._exec(fa2twobit_cmd, CONVERSION_ERR_MSG)
-        self._to_log('Execution successfully completed; cleaning up and exiting')
+        self._to_log("Execution successfully completed; cleaning up and exiting")
 
     def intron_classifier(self) -> None:
         """
@@ -713,7 +722,7 @@ class InputProducer(CommandLineManager):
                 data: List[str] = line.strip().split("\t")
                 if not data:
                     continue
-                if len(data) != 6:
+                if len(data) < 6:
                     self._die(
                         (
                             "Improper intronIC bed file formatting at line % i; "
@@ -723,7 +732,7 @@ class InputProducer(CommandLineManager):
                     )
                 name: str = data[3].split(";")[0]
                 ## convert the probability into a Bed-compatible score
-                score: int = 0 if data[4] == "." else int(float(data[4]) * 10)
+                score: int = 0 if (data[4] == "." or data[4] == "NA") else int(float(data[4]) * 10)
                 # intron2coords[name] = f'{data[0]}\t{data[1]}\t{data[2]}\t{{}}\t{score}\t{data[5]}'
                 intron2coords[name] = (
                     data[0],
@@ -749,14 +758,16 @@ class InputProducer(CommandLineManager):
                 data: List[str] = line.strip().split("\t")
                 if not data:
                     continue
-                if len(data) != 14:
+                if len(data) < 14:
                     self._die(
                         (
                             "Improper intronIC file formatting at line % i; "
-                            "expected 14 fields, got %i"
+                            "expected at least 14 fields, got %i"
                         )
                         % (i, len(data))
                     )
+                if data[0] == NAME:
+                    continue
                 name: str = data[0].split(";")[0]
                 dinuc: str = data[2]
                 intron_class: str = data[12].upper()
@@ -938,6 +949,6 @@ class InputProducer(CommandLineManager):
             self.profiles[key][pos][nuc] += 1
 
     def set_logging(self) -> None:
-        """Sets logging and disables logging propagation"""
-        super().set_logging()
+        """Sets up logging system for a InputProducer instance"""
+        super().set_logging(toga_module="prepare-input")
         self.logger.propagate = False
