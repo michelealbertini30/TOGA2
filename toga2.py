@@ -2171,6 +2171,18 @@ Relevant if PRANK aligner is selected""",
     ),
 )
 @aligner_options.option(
+    "--phase_split_codons",
+    is_flag=True,
+    default=False,
+    show_default=True,
+    help=(
+        "If set, codons split between two exons are added in full to the shorter exon. "
+        "For query sequences, split codons attributed to Missing or Deleted exons "
+        "are fully removed from the sequence. Use this feature if you want to produce codon alignment; "
+        "automatically enabled if macse2 set as alignment tool"
+    )
+)
+@aligner_options.option(
     "--confidence_threshold",
     type=click.IntRange(min=0, max=9),
     default=6,
