@@ -106,6 +106,7 @@ class CodonAligner(CommandLineManager):
         "tmp_dir",
         "keep_tmp",
         "output",
+        "phase_split_codons",
         "add_projection_names",
         "confidence_score_file",
         "exon2phase",
@@ -152,6 +153,7 @@ class CodonAligner(CommandLineManager):
         confidence_threshold: Optional[int],
         aligner: Optional[str],
         aligner_exe: Optional[Union[click.Path, None]],
+        phase_split_codons: Optional[bool],
         tree: Optional[Union[click.Path, None]],
         amino_acids_output: Optional[Union[click.Path, None]],
         show_ancestors: Optional[bool],
@@ -211,6 +213,7 @@ class CodonAligner(CommandLineManager):
             self.clean_tmp: bool = False
         self.keep_tmp: bool = keep_tmp
         self.output: TextIO = output
+        self.phase_split_codons: bool = phase_split_codons or aligner == MACSE
         self.confidence_score_file: TextIO = confidence_scores
         self.run(input_dirs)
 
@@ -488,10 +491,10 @@ class CodonAligner(CommandLineManager):
                 self.exon2length[ex_num] = len(curr_seq)
         if infer_phases:
             self.exon2phase = tuple(phases)
-        out_seqs = self.phase_split_codons(out_seqs)
+        out_seqs = self.phase_codons(out_seqs)
         return out_seqs
 
-    def phase_split_codons(self, exons: List[str]) -> List[str]:
+    def phase_codons(self, exons: List[str]) -> List[str]:
         """
         Given a list of exon sequences, restores split codons to zero split phase
         """
@@ -526,20 +529,21 @@ class CodonAligner(CommandLineManager):
                 exons[e - 1] = prev_exon
                 continue
             ## otherwise, resolve the split codons in favour of the shorter of two exons
-            if prev_len < next_len:
-                if phase_remainder >= len(next_exon):
-                    continue
-                prev_exon = prev_exon + next_exon[:phase_remainder]
-                next_exon = next_exon[phase_remainder:]
-                exons[e - 1] = prev_exon
-                exons[e] = next_exon
-            else:
-                if phase >= len(next_exon):
-                    continue
-                # _prev_exon = prev_exon[:-phase]
-                # next_exon = prev_exon[-phase:] + next_exon
-                exons[e - 1] = prev_exon[:-phase]  ##_prev_exon
-                exons[e] = prev_exon[-phase:] + next_exon  ##next_exon
+            if self.phase_split_codons:
+                if prev_len < next_len:
+                    if phase_remainder >= len(next_exon):
+                        continue
+                    prev_exon = prev_exon + next_exon[:phase_remainder]
+                    next_exon = next_exon[phase_remainder:]
+                    exons[e - 1] = prev_exon
+                    exons[e] = next_exon
+                else:
+                    if phase >= len(next_exon):
+                        continue
+                    # _prev_exon = prev_exon[:-phase]
+                    # next_exon = prev_exon[-phase:] + next_exon
+                    exons[e - 1] = prev_exon[:-phase]  ##_prev_exon
+                    exons[e] = prev_exon[-phase:] + next_exon  ##next_exon
         return exons
 
     def run_alignment(self) -> None:
