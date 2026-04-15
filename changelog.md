@@ -32,6 +32,7 @@
         * Resolving faulty imports from `shared.py` in scheduler scripts.
         * Temporary workarounds for conflicting paralogous/processed pseudogene projections from the rejection log in the gene loss summary module (`conservation_summary.py`).
         * Timestamps removed from the project names and moved to `projet_args.tsv` instead.
+        * Modified protein sequence file (`protein.fa(.gz)`) generation
     * `spliceai`:
         * Overlapping coordinates bug fixed
         * Missing `project_name` arg fixed
@@ -41,6 +42,7 @@
         * Fixed random seed option for PRANK
         * Query projection names added to FASTA headers if `--add_projection_names` flag if set
         * Added proper handling for exons present in one sequence only
+        * Split codon phasing between the exons is disabled unless the `--phase_split_codons` flag is set
     * `prepare-input`:
         * trailing comma-insensitive parsing for BED fields 10 and 11
 

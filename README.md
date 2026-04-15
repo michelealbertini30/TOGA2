@@ -37,6 +37,8 @@ Detailed explanations of all output files can be found in our
 
 For the full list of code changes, see [changelog.md](https://github.com/hillerlab/TOGA2/blob/main/changelog.md) .
 
+For the full list of code changes, see [changelog.md](https://github.com/hillerlab/TOGA2/blob/main/changelog.md) .
+
 ## Installation
 
 ### from Github
