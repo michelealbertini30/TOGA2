@@ -15,6 +15,18 @@ CHANGELOG_LINK_LINE: str = (
     "[changelog.md](https://github.com/hillerlab/TOGA2/blob/main/changelog.md) .\n"
 )
 
+def remove_version_suffix(version: str) -> str:
+    """
+    Removes the letter suffix from the version name
+
+    Args:
+        version: version identifier
+    
+    Returns:
+        Version identifier without letter suffices
+    """
+    return "".join((x for x in version if not x.isalpha()))
+
 @click.command()
 @click.argument("version", type=str, metavar="VERSION_NAME")
 def versioneer(version: str) -> None:
@@ -23,7 +35,7 @@ def versioneer(version: str) -> None:
     if not version[0].isdigit():
         raise ValueError("Version identifier must start with a digit")
     version = "v" + version
-    version_main: str = version.split("a")[0]
+    version_main: str = remove_version_suffix(version)
 
     ## update __version__.py
     with open(VERSION_FILE, "w") as h:
