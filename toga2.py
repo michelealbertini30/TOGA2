@@ -667,7 +667,7 @@ Value of 0 denotes unlimited memory""",
     "-prof",
     type=click.Path(exists=True),
     metavar="PATH",
-    default=(),
+    default=None,
     show_default=True,
     help="""A path to a single directory containing the full set of CESAR2 profiles.
 The following files are expected:\n
