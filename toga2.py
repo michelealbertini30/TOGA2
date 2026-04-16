@@ -50,6 +50,7 @@ LOCATION: str = os.path.dirname(os.path.abspath(__file__))
 BIN: str = os.path.join(LOCATION, "bin")
 POSTOGA_DIR: str = os.path.join(LOCATION, "postoga")
 TEST_DIR: str = os.path.join(LOCATION, "test_input")
+CESAR_PROFILE_PATH: str = os.path.join(LOCATION, "supply", "CESAR2.0", "profiles", "human")
 
 HG38_CANON_U2_ACCEPTOR: str = os.path.join(LOCATION, *HG38_CANON_U2_ACCEPTOR)
 HG38_CANON_U2_DONOR: str = os.path.join(LOCATION, *HG38_CANON_U2_DONOR)
@@ -667,7 +668,7 @@ Value of 0 denotes unlimited memory""",
     "-prof",
     type=click.Path(exists=True),
     metavar="PATH",
-    default=None,
+    default=CESAR_PROFILE_PATH,
     show_default=True,
     help="""A path to a single directory containing the full set of CESAR2 profiles.
 The following files are expected:\n
