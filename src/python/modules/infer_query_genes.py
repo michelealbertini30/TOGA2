@@ -721,7 +721,7 @@ class QueryGeneCollapser(CommandLineManager):
                 gene1: str = self.ref_isoform2gene.get(tr1[0], "")
                 if not gene1:
                     continue
-                for tr2 in trs[i:]:
+                for tr2 in trs[i+1:]:
                     if tr2[1] >= tr1[2]:
                         break
                     gene2: str = self.ref_isoform2gene.get(tr2[0], "")
