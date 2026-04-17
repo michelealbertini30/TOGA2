@@ -1172,11 +1172,11 @@ class InitialOrthologyResolver(CommandLineManager):
             for tr in non_projected_transcripts:
                 if tr in self.tr2proj and self.tr2proj[tr]:
                     status: str = max(
-                        [self.loss_status.get(x, "N") for x in self.tr2proj[tr]],
+                        [self.loss_status.get(x, "M") for x in self.tr2proj[tr]],
                         key=lambda x: CLASS_TO_NUM[x],
                     )
                 else:
-                    status: str = "N"
+                    status: str = "M"
                 line: str = RejectionReasons.REMOVED_ORTH_REASON.format(tr, status)
                 h.write(line + "\n")
             for r_gene, q_gene in self.removed_edges:
