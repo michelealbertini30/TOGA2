@@ -708,6 +708,7 @@ class CommandLineManager:
         """
         Sets up logging system for a TogaMain instance
         """
+        logging.root.handlers = []
         if name is None:
             name = __name__
         if toga_module is None:
