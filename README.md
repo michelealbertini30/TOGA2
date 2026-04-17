@@ -31,11 +31,10 @@ Detailed explanations of all output files can be found in our
     * Lifting the "early access" warning (see `Minor changes`)
 * `integrate` mode:
     * Paralogs overlapping orthologous projections are now retained as long as they contain enough novel sequence compared to the rest of the projections in the locus.
+    * UTR-annotated input support
 * `prepare-input` mode:
     * Exon sequence .2bit file for SLEASY compatibility generated along with BED and isoforms files.
     * File names are now prepended with an optional reference name prefix.
-
-For the full list of code changes, see [changelog.md](https://github.com/hillerlab/TOGA2/blob/main/changelog.md) .
 
 For the full list of code changes, see [changelog.md](https://github.com/hillerlab/TOGA2/blob/main/changelog.md) .
 
