@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from shutil import which
 from typing import Dict, Iterable, List, Optional, Set, TextIO, Tuple, Union
 
+import logging
 import networkx as nx
 
 from .cesar_wrapper_constants import CLASS_TO_COL, CLASS_TO_NUM
@@ -48,6 +49,8 @@ if len(v_split) > 1:
     NX_VERSION: float = float(f"{v_split[0]}.{v_split[1]}")
 else:
     NX_VERSION: float = float(v_split[0])
+
+logging.root.handlers = []
 
 
 class ReferenceBundle:  ## initialized from a JSON object
@@ -198,6 +201,7 @@ class AnnotationIntegrator(CommandLineManager):
         "schema",
         "chrom_sizes",
         "bed_index",
+        "v",
     )
 
     def __init__(
@@ -823,7 +827,7 @@ class AnnotationIntegrator(CommandLineManager):
                         name2lines_selected[paralog] = list(proj.cds_lines.values())
                         continue
                     if not selected:
-                        for line in proj.lines.values():
+                        for line in proj.cds_lines.values():
                             selected[line] = paralog
                         name2lines_selected[paralog] = list(proj.cds_lines.values())
                         continue
@@ -1008,6 +1012,9 @@ class AnnotationIntegrator(CommandLineManager):
         if self.skip_ucsc:
             self._to_log("Skipping the joint UCSC BigBed file creation as suggested")
             return
+
+        from get_names_from_bed import BedNameRetriever
+
         nuc_seqs: List[str] = []
         prot_seqs: List[str] = []
         longest_word: int = 0
@@ -1055,10 +1062,21 @@ class AnnotationIntegrator(CommandLineManager):
         )
         _ = self._exec(bb_cmd, "BigBed generation failed: ")
         self._to_log("BigBed file successfully created")
-        bed_ix_cmd: str = (
-            f"{MAKE_IX_SCRIPT} {self.bigbed_stub} | sort -u > {self.bed_index}"
+        # bed_ix_cmd: str = (
+        #     f"{MAKE_IX_SCRIPT} {self.bigbed_stub} | sort -u > {self.bed_index}"
+        # )
+        # _ = self._exec(bed_ix_cmd, "BED file indexing failed")
+        BedNameRetriever(
+            (
+                "--input", 
+                self.bigbed_stub, 
+                "--output", 
+                self.bed_index, 
+                "--log_name", 
+                "integrate",
+            ),
+            standalone_mode=False
         )
-        _ = self._exec(bed_ix_cmd, "BED file indexing failed")
         bigbed_ix_cmd: str = (
             f"{self.ixixx_binary} {self.bed_index} {self.ix} {self.ixx} "
             f"-maxWordLength={longest_word}"
@@ -1144,5 +1162,5 @@ class AnnotationIntegrator(CommandLineManager):
 
     def set_logging(self) -> None:
         """Sets logging and disables logging propagation"""
-        super().set_logging()
+        super().set_logging(name="integrate", toga_module="integrate")
         self.logger.propagate = False
