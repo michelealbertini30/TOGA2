@@ -67,12 +67,20 @@ def versioneer(version: str) -> None:
                 anchor_found = True
                 continue
             if anchor_found:
-                if line.strip():
+                if line.startswith("## "):
+                    h.write("#" + changelog_lines + '\n')
+                    anchor_found = False
+                    h.write(line)
+                else:
                     continue
-                h.write("#" + changelog_lines + '\n')
-                anchor_found = False
             else:
                 h.write(line)
+            #     if not line.startswith("#"):
+            #         continue
+            #     h.write("#" + changelog_lines + '\n')
+            #     anchor_found = False
+            # else:
+            #     h.write(line)
 
 if __name__ == '__main__':
     versioneer()
