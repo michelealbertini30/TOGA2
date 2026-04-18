@@ -387,10 +387,6 @@ class BigBedProducer(CommandLineManager):
         )
         _ = self._exec(bigbed_cmd, "bedToBigBed failed")
         self._to_log("BigBed file successfully created")
-        # bed_ix_cmd: str = (
-        #     f"{MAKE_IX_SCRIPT} {self.out_bed_file} | sort -u > {self.bed_index}"
-        # )
-        # _ = self._exec(bed_ix_cmd, "BED file indexing failed")
         self._to_log("Retrieving names from the BED file")
         BedNameRetriever(
             (
