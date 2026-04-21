@@ -209,6 +209,11 @@ class LossFileFilter(CommandLineManager):
             self.loss_out.write(f"{TRANSCRIPT}\t{tr}\t{status}\n")
         for gene, status in gene2loss.items():
             if any(x in tr2best_loss for x in gene2trs.get(gene, [])):
+                best_losses: List[Union[str, None]] = [
+                    tr2best_loss.get(x) for x in gene2trs.get(gene, []) if x in tr2best_loss
+                ]
+                if best_losses:
+                    status: str = max(best_losses,  key=lambda x: CLASS_TO_NUM[x])
                 self.loss_out.write(f"{GENE}\t{gene}\t{status}\n")
                 continue
             if status in MISSING_STATS:
