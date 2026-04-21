@@ -1167,7 +1167,6 @@ class LogParserForSummary(CommandLineManager):
                 "The following arguments are missing from the project argument file: %s"
                 % ", ".join(missing_args)
             )
-        args["orth_probs_file"] = os.path.join(output, )
         args["cmd"] = None
         return args
 
