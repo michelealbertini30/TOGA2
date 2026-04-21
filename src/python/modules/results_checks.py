@@ -92,13 +92,13 @@ BREAK_LINE: str = "#" * 100
 MAIN_HEADER: str = """{br}
 #### TOGA2 summary
 {br}
-TOGA2 annotated {num_genes} genes and {num_retro} retrogenes in the query genome.
+TOGA2 annotated {num_genes} genes and {num_retro} retrogene candidates in the query genome.
 In addition, TOGA2 identified {num_lost} genes classified as lost and {num_missing} genes classified as missing in the query.
 
-Out of {ref_gene_num} reference genes, {num_with_func_orth} ({perc_with_func_orth}%) have at least one potentially functional ortholog, while for {num_with_func_para} ({perc_with_func_para}%) genes, TOGA2 identified only potentially functional paralogs in the query genome.
+Out of {ref_gene_num} reference genes, {num_with_func_orth} ({perc_with_func_orth}%) have at least one potentially functional ortholog; of these, {num_one2one} ({perc_one2one}%) are classified as 1:1 orthologs. For {num_with_func_para} ({perc_with_func_para}%) genes, TOGA2 identified only potentially functional paralogs in the query genome.
 
-#HEADER	QueryAssembly	no. annotated query genes	no. query retrogenes	no. lost genes in query	no. missing genes in query	no. ref genes with potentially functional orthologs	no. ref genes with potentially functional paralogs
-#SINGLELINESUMMARY   {query_name} {num_genes} {num_retro} {num_lost}  {num_missing}   {num_with_func_orth} {num_with_func_para}
+#HEADER	QueryAssembly	no. annotated query genes	no. query retrogenes	no. lost genes in query	no. missing genes in query	no. ref genes with potentially functional orthologs no. one2one orthologs	no. ref genes with potentially functional paralogs
+#SINGLELINESUMMARY   {query_name} {num_genes} {num_retro} {num_lost}  {num_missing}   {num_with_func_orth}  {num_one2one} {num_with_func_para}
 
 This data set was generated with TOGA2 version {version} and the following input files:
 * Reference genome: {ref_2bit}
@@ -1684,6 +1684,8 @@ class SummaryStat:
             num_missing=missing_gene_num,
             num_with_func_orth=num_with_func_orth,
             perc_with_func_orth=perc_with_func_orth,
+            num_one2one=len(gene2orth_class.get(ONE2ONE, [])),
+            perc_one2one=to_perc(len(gene2orth_class.get(ONE2ONE, [])), ref_gene_num),
             num_with_func_para=num_with_func_para,
             perc_with_func_para=perc_with_func_para,
             version=self.version,
