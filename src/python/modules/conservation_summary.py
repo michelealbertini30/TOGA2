@@ -253,6 +253,7 @@ def add_rejection_data(
     if no instance of this projection or transcript was subjected to alignment,
     leaves the best loss status otherwise
     """
+    tr_from_rej_log: Set[str] = set()
     for proj, rej_proj_status in reject_proj2status.items():
         tr: str = "#".join(proj.split("#")[:-1])
         if proj not in orig_proj2status:
@@ -264,7 +265,11 @@ def add_rejection_data(
             )
         rej_tr_status: str = reject_tr2status[tr]
         if tr not in orig_tr2status:
+            tr_from_rej_log.add(tr)
             orig_tr2status[tr] = rej_tr_status
+        ## do not account for items non-spanning items
+        elif rej_proj_status not in SPANNING_CLASSES:
+            continue
         else:
             orig_tr_status: str = orig_tr2status[tr]
             orig_tr2status[tr] = max(
