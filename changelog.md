@@ -21,6 +21,7 @@
         * Chimeric projections are no longer accounted for when estimated the most probable/most chain-covered items in `infer_query_genes.tsv`.
         * Transcripts with processed pseudogene projections only are now classified as *Missing* and appear in the rejection log under the `PPGENE_ONLY` label.
         * Genes with processed pseudogene projections only are also classified as *Missing*.
+        * Safeguard against false loss status assignment based on the rejected items.
         * Additional loss summary updated at the `finalize` step (**NOTE**: the updated data are not reflected in `meta/loss_summary_extended.tsv`).
         * Stepwise rejection logs are now appended to `rejected_items.tsv` instead of being dumped to separate temporary files.
         * Fixing rejection level for `GENE_TREE_REJECTION` category from `TRANSCRIPT` to `PROJECTION`.
