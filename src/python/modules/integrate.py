@@ -25,6 +25,7 @@ from .shared import (
     get_upper_dir,
     make_cds_track,
     intersection,
+    read_tab,
 )
 
 TOGA2_ROOT: str = get_upper_dir(__file__, 4)
@@ -52,6 +53,21 @@ else:
 
 logging.root.handlers = []
 
+def safe_div(numerator: int, denominator: int) -> float:
+    """
+    Divides numerator by denominator, obviating the division by zero scenario.
+
+    Args:
+        numerator: a number to divide
+        denominator: a number to divide by
+    
+    Returns:
+        Zero if denominator is zero, numerator divided by denominator otherwise
+    """
+    if denominator == 0:
+        return 0.0
+    return numerator / denominator
+
 
 class ReferenceBundle:  ## initialized from a JSON object
     """
@@ -63,9 +79,9 @@ class ReferenceBundle:  ## initialized from a JSON object
         "query_bed",
         "exon_meta",
         "ref_isoforms",
-        # "paralogs",
-        # "ppgenes",
+        "ref_bed",
         "ucsc_bigbed",
+        "decorator_bigbed",
         "protein_file",
         "nucleotide_file",
         "priority",
@@ -79,14 +95,12 @@ class ReferenceBundle:  ## initialized from a JSON object
         self.query_bed: str = kwargs["query_bed"]
         self.exon_meta: str = kwargs["exon_meta"]
         self.ref_isoforms: Union[str, None] = kwargs.get("reference_isoforms", None)
-        # self.paralogs: Union[str, None] = kwargs.get("paralog_list", None)
-        # self.ppgenes: Union[str, None] = kwargs.get("processed_pseudogene_list", None)
+        self.ref_bed: Union[str, None] = kwargs.get("reference_bed", None)
         self.ucsc_bigbed: Union[str, None] = kwargs.get("ucsc_bigbed", None)
+        self.decorator_bigbed: Union[str, None] = kwargs.get("decorator_bigbed", None)
         self.protein_file: Union[str, None] = kwargs.get("protein_file", None)
         self.nucleotide_file: Union[str, None] = kwargs.get("nucleotide_file", None)
         self.priority: int = kwargs.get("priority", priority)
-
-    
 
 
 @dataclass
@@ -161,7 +175,7 @@ class ExonRecord:
         return self.end - self.start
 
     def coords(self) -> Tuple[int,  int]:
-        return (self.start, self.enf)
+        return (self.start, self.end)
 
 
 class AnnotationIntegrator(CommandLineManager):
@@ -171,6 +185,7 @@ class AnnotationIntegrator(CommandLineManager):
         "query_proj2ref",
         "query_annotation",
         "ref_proj2gene",
+        "intersecting_ref_genes",
         "paralog_pool",
         "ppgene_pool",
         "graph",
@@ -189,7 +204,9 @@ class AnnotationIntegrator(CommandLineManager):
         "nucleotide_file",
         "ucsc_dir",
         "bigbed_stub",
+        "decorator_stub",
         "bigbed",
+        "decorator",
         "ix",
         "ixx",
         "prefix",
@@ -199,6 +216,7 @@ class AnnotationIntegrator(CommandLineManager):
         "bedtobigbed_binary",
         "ixixx_binary",
         "schema",
+        "decorator_schema",
         "chrom_sizes",
         "bed_index",
         "v",
@@ -244,6 +262,7 @@ class AnnotationIntegrator(CommandLineManager):
         self.query_proj2ref: Dict[str, str] = {}
         self.query_annotation: Dict[str, List[str]] = defaultdict(list)
         self.ref_proj2gene: Dict[str, str] = {}
+        self.intersecting_ref_genes: Dict[str, Set[str]] = defaultdict(set)
         self.paralog_pool: Set[str] = set()
         self.ppgene_pool: Set[str] = set()
         self.graph: nx.Graph = nx.Graph()
@@ -262,6 +281,7 @@ class AnnotationIntegrator(CommandLineManager):
         ):
             self._die("Query chromosome size file was not provided")
         self.schema: str = os.path.join(TOGA2_ROOT, "supply", "bb_schema_toga2.as")
+        self.decorator_schema: str = os.path.join(TOGA2_ROOT, "supply", "decoration.as")
         self.has_ucsc_data: List[str] = []
 
         self.output: str = output
@@ -270,11 +290,13 @@ class AnnotationIntegrator(CommandLineManager):
         self.projection_bed: str = os.path.join(output, "query_annotation.bed")
         self.ucsc_dir: str = os.path.join(output, "ucsc_browser_files")
 
-        self.protein_file: str = os.path.join(output, "protein.fa")
-        self.nucleotide_file: str = os.path.join(output, "nucleotide.fa")
+        self.protein_file: str = os.path.join(output, "protein.fa.gz")
+        self.nucleotide_file: str = os.path.join(output, "nucleotide.fa.gz")
 
         self.bigbed_stub: str = os.path.join(self.ucsc_dir, f"{prefix}.bed")
+        self.decorator_stub: str = os.path.join(self.ucsc_dir, f"{prefix}.decorator.bed")
         self.bigbed: str = os.path.join(self.ucsc_dir, f"{prefix}.bb")
+        self.decorator: str = os.path.join(self.ucsc_dir, f"{prefix}.decorator.bb")
         self.ix: str = os.path.join(self.ucsc_dir, f"{prefix}.ix")
         self.ixx: str = os.path.join(self.ucsc_dir, f"{prefix}.ixx")
         self.bed_index: str = os.path.join(self.ucsc_dir, f"{prefix}.ix.txt")
@@ -296,6 +318,7 @@ class AnnotationIntegrator(CommandLineManager):
             self.read_annotation(species)
             self.read_exon_meta(species)
             self.read_ref_isoforms(species)
+            self.get_overlapping_genes(species)
             ## the fol
             # self.read_paralogs(species)
             # self.read_ppgenes(species)
@@ -438,8 +461,8 @@ class AnnotationIntegrator(CommandLineManager):
                         self.query_projections[name].lines[segment] = line_template
                     else:
                         self._die(
-                            "Duplicated non-fragmented entry for reference %s: %s"
-                        ) % (species, name)
+                            "Duplicated non-fragmented entry for reference %s: %s" % (species, name)
+                        )
                 else:
                     record: BedRecord = BedRecord(
                         name,
@@ -503,12 +526,12 @@ class AnnotationIntegrator(CommandLineManager):
                 end: int = int(data[5])
                 strand: bool = data[6] == PLUS
                 exon_num: int = int(data[1])
-                record: str = ExonRecord(proj, exon_num, chrom, start, end, strand)
+                record: ExonRecord = ExonRecord(proj, exon_num, chrom, start, end, strand)
                 self.query_projections[proj].exons.append(record)
 
     def read_ref_isoforms(self, species: str) -> None:
         """Reads the transcript-to-gene mapping for a given reference"""
-        file: str = self.ref_data[species].ref_isoforms
+        file: Union[str, None] = self.ref_data[species].ref_isoforms
         if file is None:
             self._to_log(
                 "No reference isoform file provided for reference %s" % species
@@ -524,6 +547,56 @@ class AnnotationIntegrator(CommandLineManager):
                     continue
                 gene, tr = data
                 self.ref_proj2gene[tr] = gene
+
+    def get_overlapping_genes(self, species: str) -> None:
+        """Extracts data on non-synonymous genes overlapping in the reference"""
+        file: Union[str, None] = self.ref_data[species].ref_bed
+        if file is None:
+            self._to_log(
+                "No reference annotation BED file provided for reference %s" % species
+            )
+            return
+        isoforms: Union[str, None] = self.ref_data[species].ref_isoforms
+        if isoforms is None:
+            self._to_log(
+                (
+                    "No reference isoform file provided for reference %s; "
+                    "ignoring the reference annotation BED file"
+                ) % species
+            )
+            return
+        if not os.path.exists(file):
+            self._to_log("File %s does not exist; skipping" % file)
+            return
+        chrom2tr_coords: Dict[str, List[Tuple[int, int]]] = defaultdict(list)
+        for data in read_tab(file):
+            tr: str = data[3]
+            chrom: str = data[0]
+            start: int = int(data[6])
+            end: int = int(data[7])
+            chrom2tr_coords[chrom].append((tr, start, end))
+        for chrom, trs in chrom2tr_coords.items():
+            trs = sorted(trs, key=lambda x: (x[1], x[2]))
+            for i, tr1 in enumerate(trs):
+                gene1: str = self.ref_proj2gene.get(tr1[0], "")
+                if not gene1:
+                    continue
+                for tr2 in trs[i+1:]:
+                    if tr2[1] >= tr1[2]:
+                        break
+                    gene2: str = self.ref_proj2gene.get(tr2[0], "")
+                    if not gene2:
+                        continue
+                    if gene1 == gene2:
+                        continue
+                    inter: int = intersection(
+                        *tr1[1:], *tr2[1:]
+                    )  ## TODO: Redundant unless we impose overlap threshold
+
+                    if inter <= 0:
+                        continue
+                    self.intersecting_ref_genes[gene1].add(gene2)
+                    self.intersecting_ref_genes[gene2].add(gene1)
 
     def read_paralogs(self, species: str) -> None: ## TODO: Can be replaced with postfixes
         """DEPRECATED: Extracts paralogous projections' names"""
@@ -589,6 +662,7 @@ class AnnotationIntegrator(CommandLineManager):
                 proj_out: BedRecord = self.query_projections[name_out]
                 out_start: int = proj_out.start
                 out_end: int = proj_out.end
+                out_tr: str = get_proj2trans(name_out)[0]
                 # out_paralog: bool = name_out in self.paralog_pool
                 # out_ppgene: bool = name_out in self.ppgene_pool
                 out_paralog: bool = base_proj_name(name_out) in self.paralog_pool
@@ -602,6 +676,7 @@ class AnnotationIntegrator(CommandLineManager):
                     ## if an item has been already discarded, skip it
                     if name_in in self.discarded_items:
                         continue
+                    in_tr: str = get_proj2trans(name_in)[0]
                     in_start: int = proj_in.start
                     in_end: int = proj_in.end
                     ## as long as transcripts are sorted properly,
@@ -636,6 +711,15 @@ class AnnotationIntegrator(CommandLineManager):
                             # if out_paralog or in_paralog:
                             break
                     if has_intersection:
+                        ## check for intersections in the reference
+                        out_gene: str = self.ref_proj2gene.get(out_tr)
+                        in_gene: str = self.ref_proj2gene.get(in_tr)
+                        if out_gene and in_gene:
+                            if (
+                                out_gene in self.intersecting_ref_genes.get(in_gene, []) or
+                                in_gene in self.intersecting_ref_genes.get(out_gene, [])
+                            ):
+                                continue
                         ## ortholog + paralog/pp: discard the non-orthologous prediction
                         if out_ortholog and not in_ortholog and not in_valid_paralog:
                             self.discarded_items.add(name_in)
@@ -852,7 +936,7 @@ class AnnotationIntegrator(CommandLineManager):
                             inter_size = max(inter_size, 0)
                             min_abs = min(min_abs, paralog_exon.length() - inter_size)
                         ## if at least one exon meets the requirements, add it to the output
-                        min_rel: float = min_abs / paralog_exon.length()
+                        min_rel: float = safe_div(min_abs, paralog_exon.length())
                         if (
                             min_abs >= self.paralog_abs_novelty_threshold and min_rel >= self.paralog_rel_novelty_threshold
                         ):
@@ -861,7 +945,7 @@ class AnnotationIntegrator(CommandLineManager):
                     if to_add:
                         for line in proj.cds_lines.values():
                             selected[line] = paralog
-                        name2lines_selected[paralog] = list(proj.cds_lines)
+                        name2lines_selected[paralog] = list(proj.cds_lines.values())
                 ## last round: process the losses
                 if allowed_class_found:
                     ## first, add the exons coming from the newly included paralogs
@@ -922,7 +1006,7 @@ class AnnotationIntegrator(CommandLineManager):
                                 inter_size = max(inter_size, 0)
                                 min_abs = min(min_abs, lost_exon.length() - inter_size)
                             ## if at least one exon meets the requirements, add it to the output
-                            min_rel: float = min_abs / lost_exon.length()
+                            min_rel: float = safe_div(min_abs, lost_exon.length())
                             if (
                                 min_abs >= self.lost_abs_novelty_threshold and min_rel >= self.lost_rel_novelty_threshold
                             ):
@@ -931,7 +1015,7 @@ class AnnotationIntegrator(CommandLineManager):
                         if to_add:
                             for line in proj.cds_lines.values():
                                 selected[line] = lost_proj
-                            name2lines_selected[lost_proj] = list(proj.cds_lines)
+                            name2lines_selected[lost_proj] = list(proj.cds_lines.values())
                 ## all the projections have been processed; name the gene and define its coordinates
                 filtered_component: nx.Graph = component.copy()
                 nodes_to_remove: Set[str] = {
@@ -977,6 +1061,7 @@ class AnnotationIntegrator(CommandLineManager):
                     else:
                         prefix: str = ""
                     ## define the main name; for simplicity, do not bother with chain numbers
+                    genes = sorted(genes)
                     if len(genes) == 1:  ## single gene; assign its name to query locus
                         gene: str = genes.pop()
                     elif (
@@ -1018,6 +1103,7 @@ class AnnotationIntegrator(CommandLineManager):
         nuc_seqs: List[str] = []
         prot_seqs: List[str] = []
         longest_word: int = 0
+        bb_input_found: bool = False
         with open(self.bigbed_stub, "w") as h:
             for ref, data in self.ref_data.items():
                 seqs_found: Set[str] = set()
@@ -1030,6 +1116,7 @@ class AnnotationIntegrator(CommandLineManager):
                     continue
                 if not os.path.exists(file):
                     self._die("UCSC BigBed file %s does not exist" % file)
+                bb_input_found = True
                 self.has_ucsc_data.append(ref)
                 read_cmd: str = f"{self.bigbedtobed_binary} {file} stdout"
                 output: TextIO = self._exec(
@@ -1044,15 +1131,27 @@ class AnnotationIntegrator(CommandLineManager):
                     basename: str = base_proj_name(name)
                     if basename not in self.final_projections:
                         continue
+                    name = f"{ref}.{name}"
+                    data[3] = name
+                    line = "\t".join(data)
                     h.write(line + "\n")
                     longest_word = max(longest_word, len(name))
                     if basename in seqs_found:
                         continue
                     nuc_seq: str = data[34]
-                    nuc_seqs.append(f">{ref}.{name}\n{nuc_seq}")
+                    nuc_seqs.append(f">{name}\n{nuc_seq}")
                     prot_seq: str = data[35]
-                    prot_seqs.append(f">{ref}.{name}\n{prot_seq}")
+                    prot_seqs.append(f">{name}\n{prot_seq}")
                     seqs_found.add(basename)
+        if not bb_input_found:
+            self._to_log(
+                (
+                    "No BigBed files were provided for any of the annotation; "
+                    "skipping the genome browser track creation step"
+                ),
+                "warning"
+            )
+            return
         ## sort the resulting file, convert it into BigBed format
         bb_cmd: str = (
             f"sort -k1,1 -k2,2n -o {self.bigbed_stub} {self.bigbed_stub} && "
@@ -1085,14 +1184,73 @@ class AnnotationIntegrator(CommandLineManager):
         self._to_log("BigBed index successfully created; removing the temporary files")
         self._rm(self.bigbed_stub)
         self._rm(self.bed_index)
+
+        self._to_log("Preparing the decoration track")
+        self.prepare_decorator_track()
+        self._to_log("Decorator track successfully created; removing the temporary files")
+
         if prot_seqs:
-            with open(self.protein_file, "w") as h:
+            with gzip.open(self.protein_file, "wb") as h:
                 for prot in prot_seqs:
-                    h.write(prot + "\n")
+                    h.write((prot + "\n").encode("utf8"))
         if nuc_seqs:
-            with open(self.nucleotide_file, "w") as h:
+            with gzip.open(self.nucleotide_file, "wb") as h:
                 for nuc in nuc_seqs:
-                    h.write(nuc + "\n")
+                    h.write((nuc + "\n").encode("utf8"))
+
+    def prepare_decorator_track(self) -> None:
+        """Prepares a companion decorator track for genome browser"""
+        longest_word: int = 0
+        bb_input_found: bool = False
+        with open(self.decorator_stub, "w") as h:
+            for ref, data in self.ref_data.items():
+                file: str = data.decorator_bigbed
+                if file is None:
+                    self._to_log(
+                        "No decorator BigBed file provided for reference %s; skipping" % ref,
+                        "warning",
+                    )
+                    continue
+                if not os.path.exists(file):
+                    self._die("Decorator BigBed file %s does not exist" % file)
+                bb_input_found = True
+                read_cmd: str = f"{self.bigbedtobed_binary} {file} stdout"
+                output: TextIO = self._exec(
+                    read_cmd, "Attempt to read BigBed file %s failed: " % file
+                )
+                for data in read_tab(output.split("\n")):
+                    name_field: str = data[12]
+                    name: str = ":".join(name_field.split(":")[2:])
+                    basename: str = base_proj_name(name)
+                    if basename not in self.final_projections:
+                        continue
+                    name = f"{ref}.{name}"
+                    # data[3] = name
+                    data[12] = ":".join([*name_field.split(":")[:2], name])
+                    line = "\t".join(data)
+                    h.write(line + "\n")
+                    longest_word = max(longest_word, len(name))
+        if not bb_input_found:
+            self._to_log(
+                (
+                    "No decotator BigBed files were provided for any of the annotation; "
+                    "skipping the decorator track creation step"
+                ),
+                "warning"
+            )
+            return
+        decor_cmd: str = (
+            f"sort -o {self.decorator_stub} -k1,1 -k2,2n {self.decorator_stub} && "
+            f"{self.bedtobigbed_binary} -type=bed12+ -as={self.decorator_schema} " ## ADD!!
+            f"{self.decorator_stub} {self.chrom_sizes} {self.decorator}"
+        )
+        _ = self._exec(decor_cmd, "BigBed generation failed: ")
+        self._rm(self.decorator_stub)
+        # _ = self._exec(decor_cmd, "Decoration track production failed:")
+        # decor_bb_cmd: str = (
+        #     f"{self.bedtobigbed_binary} -type=bed12+ -as={self.DECOR_SCHEMA_FILE} "
+        #     f"{self.decor_stub} {self.query_contig_size_file} {self.decoration_track}"
+        # )
 
     def prepare_sequence_files(self) -> None:
         """p"""
@@ -1150,15 +1308,16 @@ class AnnotationIntegrator(CommandLineManager):
                     sequences.append(entry)
                 header = ""
                 seq = ""
-                proj: str = base_proj_name(header.split()[0])
+                proj: str = base_proj_name(line.split()[0]).lstrip(">")
                 if proj not in self.final_projections:
                     continue
                 header = proj
-            if header:
+            elif header:
                 seq += line
         if seq:
             entry: str = f">{ref}.{header}\n{seq}"
             sequences.append(entry)
+        return sequences
 
     def set_logging(self) -> None:
         """Sets logging and disables logging propagation"""
