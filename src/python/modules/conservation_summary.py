@@ -246,6 +246,8 @@ def add_rejection_data(
     reject_proj2status: Dict[str, str],
     reject_tr2status: Dict[str, str],
     precedence: Optional[Dict[str, str]] = {},
+    paralogs: Optional[Set[str]] = set(),
+    ppgenes: Optional[Set[str]] = set(),
 ) -> Tuple[Dict[str, str], Dict[str, str]]:
     """
     Updates projection- and transcript-level loss status dictionaries with
@@ -263,6 +265,9 @@ def add_rejection_data(
             orig_proj2status[proj] = max(
                 (orig_proj_status, rej_proj_status), key=lambda x: CLASS_TO_NUM[x]
             )
+        ## do not propagate rejected paralog statuses
+        if proj in paralogs or proj in ppgenes:
+            continue
         rej_tr_status: str = reject_tr2status[tr]
         if tr not in orig_tr2status:
             tr_from_rej_log.add(tr)
@@ -443,7 +448,13 @@ def main(
         with open(rejected_projections, "r") as h:
             r_proj2status, r_tr2status = rejection_file_to_report(h)
             proj2status, tr2status = add_rejection_data(
-                proj2status, tr2status, r_proj2status, r_tr2status, spanning_status
+                proj2status, 
+                tr2status, 
+                r_proj2status,
+                r_tr2status, 
+                spanning_status,
+                paralogs=paralogs,
+                ppgenes=ppgenes,
             )
     output.write(Headers.LOSS_FILE_HEADER)
     for proj, status in proj2status.items():
