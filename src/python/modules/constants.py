@@ -1143,6 +1143,7 @@ TOGA2_SLOTS: Tuple[str, ...] = (
     "project_name",
     "project_id",
     "timestamp",
+    "cmd",
     "v",
     "debug",
     "email",

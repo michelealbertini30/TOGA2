@@ -69,6 +69,7 @@ ISOFORM_FILE: str = "isoform_file"
 OUT_DIR: str = "output"
 U12_FILE: str = "u12_file"
 SPLICEAI_DIR: str = "spliceai_dir"
+QUERY_NAME: str = "query_name"
 MANDATORY_PATH_ARGS: Tuple[str, ...] = (
     REF_2BIT,
     QUERY_2BIT,
@@ -82,7 +83,9 @@ ALL_ARGS: Tuple[str, ...] = (
     ISOFORM_FILE,
     U12_FILE,
     SPLICEAI_DIR,
+    QUERY_NAME,
 )
+OUTPUT: str = "output"
 
 BREAK_LINE: str = "#" * 100
 
@@ -95,9 +98,9 @@ In addition, TOGA2 identified {num_lost} genes classified as lost and {num_missi
 Out of {ref_gene_num} reference genes, {num_with_func_orth} ({perc_with_func_orth}%) have at least one potentially functional ortholog, while for {num_with_func_para} ({perc_with_func_para}%) genes, TOGA2 identified only potentially functional paralogs in the query genome.
 
 #HEADER	QueryAssembly	no. annotated query genes	no. query retrogenes	no. lost genes in query	no. missing genes in query	no. ref genes with potentially functional orthologs	no. ref genes with potentially functional paralogs
-#SINGLELINESUMMARY   query {num_genes} {num_retro} {num_lost}  {num_missing}   {num_with_func_orth} {num_with_func_para}
+#SINGLELINESUMMARY   {query_name} {num_genes} {num_retro} {num_lost}  {num_missing}   {num_with_func_orth} {num_with_func_para}
 
-This data set was generated with TOGA2 version {version} (git commit XXXXX) and the following input files:
+This data set was generated with TOGA2 version {version} and the following input files:
 * Reference genome: {ref_2bit}
 * Query genome: {query_2bit}
 * Genome alignment chain file: {chains}
@@ -105,13 +108,19 @@ This data set was generated with TOGA2 version {version} (git commit XXXXX) and 
 * Output directory: {output}
 * Isoforms file: {isoforms}
 * U12/non-canonical U2 intron file: {u12_file}
-* SpliceAI query directory: {spliceai_dir}
+* SpliceAI query directory: {spliceai_dir}{cmd}
 
 For questions, please check whether the issue has already been addressed at https://github.com/hillerlab/TOGA2/issues. If not, please open a new issue.
 
 If you use these data, please cite: 
 Yury V. Malovichko et al. "Accurate, comprehensive gene annotation and ortholog identification across thousands of vertebrate genomes with TOGA2", in preparation
 
+"""
+
+CMD: str = """
+
+TOGA2 was invoked with the following command:
+{cmd}
 """
 
 DETAILED_HEADER: str = """{br}
@@ -1004,15 +1013,14 @@ class LogParserForSummary(CommandLineManager):
     An auxiliary project arguments file parser for summary report production
     """
 
-    __slots__ = ("args_file", "format", "expanded")
+    __slots__ = ("args_file", "format")
 
-    def __init__(self, args: os.PathLike, report_format: str, expanded: bool) -> None:
+    def __init__(self, args: os.PathLike, report_format: str) -> None:
         self.v: bool = True
         self.set_logging()
 
         self.args_file: str = args
         self.format: str = report_format
-        self.expanded: bool = expanded
 
     def extract_settings(self) -> Dict[str, Union[str, None]]:
         """Main args extraction method"""
@@ -1030,6 +1038,7 @@ class LogParserForSummary(CommandLineManager):
     def parse_tsv(self) -> Dict[str, Union[str, None]]:
         """Extracts args from the TSV-format (legacy) project arguments file"""
         args: Dict[str, Union[str, None]] = {arg: None for arg in ALL_ARGS}
+        output: Union[str, None] = None
         for data in read_tab(self.args_file):
             if data[0] == REF_2BIT:
                 if not os.path.exists(data[1]):
@@ -1145,6 +1154,11 @@ class LogParserForSummary(CommandLineManager):
                     if not os.path.exists(expected_path):
                         self._die("Output file %s does not exist")
                     args[attr] = expected_path
+            if data[0] == QUERY_NAME:
+                value: Union[str, None] = None if data[1] == NONE else data[1]
+                args[data[0]] = value
+            if data[0] == OUTPUT:
+                output: Union[str, None] = None if data[1] == NONE else data[1]
         missing_args: List[str] = [
             x for x, y in args.items() if y is None and x in MANDATORY_ARGS
         ]
@@ -1153,7 +1167,8 @@ class LogParserForSummary(CommandLineManager):
                 "The following arguments are missing from the project argument file: %s"
                 % ", ".join(missing_args)
             )
-        args["expanded"] = self.expanded
+        args["orth_probs_file"] = os.path.join(output, )
+        args["cmd"] = None
         return args
 
     def parse_json(self) -> Dict[str, Union[str, None]]:
@@ -1163,10 +1178,11 @@ class LogParserForSummary(CommandLineManager):
         once additional project_args formats are implemented
         """
         import json
-        all_args: Dict[str, Union[str, Dict[any]]] = json.load(self.args_file)
+        with open(self.args_file, "r") as h:
+            all_args: Dict[str, Union[str, Dict[any]]] = json.load(h)
         args: Dict[str, Union[str, None]] = {arg: None for arg in ALL_ARGS}
         for arg in ALL_ARGS:
-            value: Union[str, None] = all_args.get(arg, None)
+            value: Union[str, None] = all_args["parameters"].get(arg, None)
             if value is None:
                 continue
             if arg in MANDATORY_ARGS:
@@ -1188,7 +1204,7 @@ class LogParserForSummary(CommandLineManager):
                         )
                     continue
                 elif arg == ACCEPTED_CLASSES:
-                    accepted_loss_symbols: List[str] = value
+                    accepted_loss_symbols: List[str] = [x for x in value.split(",") if x]
                     if any(x not in Constants.ALL_LOSS_SYMBOLS for x in accepted_loss_symbols):
                         self._die(
                             '"accepted_loss_symbols" contains inappropriate loss symbols: %s'
@@ -1209,7 +1225,15 @@ class LogParserForSummary(CommandLineManager):
                 "The following arguments are missing from the project argument file: %s"
                 % ", ".join(missing_args)
             )
-        args["expanded"] = self.expanded
+        output: Union[str, None] = all_args["parameters"].get(OUT_DIR)
+        if output is None:
+            self._die("Output directory is undefined")
+        for attr, expected_name in EXPECTED_OUTPUT_FILE_NAMES.items():
+            expected_path: str = os.path.join(output, expected_name)
+            if not os.path.exists(expected_path):
+                self._die("Output file %s does not exist")
+            args[attr] = expected_path
+        args["cmd"] = None
         return args
 
     def parse_yaml(self) -> Dict[str, Union[str, None]]:
@@ -1219,10 +1243,11 @@ class LogParserForSummary(CommandLineManager):
         once additional project_args formats are implemented
         """
         import yaml
-        all_args: Dict[str, Union[str, Dict[any]]] = yaml.safe_load(self.args_file)
+        with open(self.args_file, "r") as h:
+            all_args: Dict[str, Union[str, Dict[any]]] = yaml.safe_load(h)
         args: Dict[str, Union[str, None]] = {arg: None for arg in ALL_ARGS}
         for arg in ALL_ARGS:
-            value: Union[str, None] = all_args.get(arg, None)
+            value: Union[str, None] = all_args["parameters"].get(arg, None)
             if value is None:
                 continue
             if arg in MANDATORY_ARGS:
@@ -1244,7 +1269,7 @@ class LogParserForSummary(CommandLineManager):
                         )
                     continue
                 elif arg == ACCEPTED_CLASSES:
-                    accepted_loss_symbols: List[str] = value
+                    accepted_loss_symbols: List[str] = [x for x in value.split(",") if x]
                     if any(x not in Constants.ALL_LOSS_SYMBOLS for x in accepted_loss_symbols):
                         self._die(
                             '"accepted_loss_symbols" contains inappropriate loss symbols: %s'
@@ -1265,7 +1290,15 @@ class LogParserForSummary(CommandLineManager):
                 "The following arguments are missing from the project argument file: %s"
                 % ", ".join(missing_args)
             )
-        args["expanded"] = self.expanded
+        output: Union[str, None] = all_args["parameters"].get(OUT_DIR)
+        if output is None:
+            self._die("Output directory is undefined")
+        for attr, expected_name in EXPECTED_OUTPUT_FILE_NAMES.items():
+            expected_path: str = os.path.join(output, expected_name)
+            if not os.path.exists(expected_path):
+                self._die("Output file %s does not exist")
+            args[attr] = expected_path
+        args["cmd"] = None
         return args
 
 
@@ -1289,8 +1322,9 @@ class SummaryStat:
         "ref_isoform_file",
         "u12_file",
         "spliceai_dir",
-        "expanded",
+        "query_name",
         "version",
+        "cmd",
         "commit",
     )
 
@@ -1310,7 +1344,8 @@ class SummaryStat:
         isoform_file: Optional[Union[os.PathLike, None]] = None,
         u12_file: Optional[Union[os.PathLike, None]] = None,
         spliceai_dir: Optional[Union[os.PathLike, None]] = None,
-        expanded: Optional[bool] = False,
+        query_name: Union[str, None] = None,
+        cmd: Optional[Union[str, None]] = None,
     ) -> None:
         """Entry point"""
         self.ref_2bit: os.PathLike = ref_2bit
@@ -1327,7 +1362,10 @@ class SummaryStat:
         self.ref_isoform_file: Union[os.PathLike, None] = isoform_file
         self.u12_file: Union[os.PathLike, None] = u12_file
         self.spliceai_dir: Union[os.PathLike, None] = spliceai_dir
-        self.expanded: bool = expanded
+        self.query_name: str = (
+            query_name if query_name is not None else query_2bit.split(os.sep)[-1]
+        )
+        self.cmd: Union[str, None] = cmd
 
         sys.path.append(LOCATION)
         from __version__ import __version__
@@ -1635,6 +1673,8 @@ class SummaryStat:
         )
         perc_with_func_orth: float = to_perc(num_with_func_orth, ref_gene_num)
 
+        cmd_line: str = "" if self.cmd is None else CMD.format(cmd=self.cmd)
+
         main_header: str = MAIN_HEADER.format(
             br=BREAK_LINE,
             ref_gene_num=ref_gene_num,
@@ -1656,6 +1696,8 @@ class SummaryStat:
             isoforms=arg_or_na(self.ref_isoform_file),
             u12_file=arg_or_na(self.u12_file),
             spliceai_dir=arg_or_na(self.spliceai_dir),
+            query_name=self.query_name,
+            cmd=cmd_line,
         )
         warnings: str = ""
         if not self.ref_isoform_file:

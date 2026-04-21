@@ -316,7 +316,7 @@ See Manual for more details on input directory structure and formatting""",
     type=str,
     metavar="REF_NAME",
     cls=DependentOption,
-    requires=["input_directory", "query_name"],
+    # requires=["input_directory", "query_name"],
     default=None,
     show_default=True,
     help="""Reference organism/assembly name used in input files' names. 
@@ -325,9 +325,9 @@ See Manual for more details on input directory formatting""",
 @bundle_options.option(
     "--query_name",
     type=str,
-    metavar="REF_NAME",
+    metavar="QUERY_NAME",
     cls=DependentOption,
-    requires=["input_directory", "ref_name"],
+    # requires=["input_directory", "ref_name"],
     default=None,
     show_default=True,
     help="""Query organism/assembly name used in input files' names. 
@@ -1311,9 +1311,10 @@ def run(**kwargs) -> None:
     \b
     run - Run TOGA2 main pipeline
     """
+    cmd: str = " ".join(sys.argv)
     from src.python.modules.toga_main import TogaMain
 
-    TogaMain(**kwargs)
+    TogaMain(**kwargs, cmd=cmd)
 
 
 @toga2.command(
@@ -2486,23 +2487,14 @@ def cookbook() -> None:
     show_default=True,
     help=("Input config file format"),
 )
-@click.option(
-    "--expanded",
-    is_flag=True,
-    default=False,
-    show_default=True,
-    help=("If set, an expanded summary is produced"),
-)
+
 def summary(
     config: click.Path,
     config_format: Optional[str] = "tsv",
-    expanded: Optional[bool] = False,
 ) -> None:
     from src.python.modules.results_checks import LogParserForSummary, SummaryStat
 
-    kwargs: Dict[str, Any] = LogParserForSummary(
-        config, config_format, expanded
-    ).extract_settings()
+    kwargs: Dict[str, Any] = LogParserForSummary(config, config_format).extract_settings()
     print(SummaryStat(**kwargs).summary())
 
 
@@ -2533,9 +2525,10 @@ def test(output: Optional[click.Path]) -> None:
 
     DEFAULT_ARGS["output"] = output
     DEFAULT_ARGS["no_spliceai"] = True
+    cmd: str = " ".join(sys.argv)
     # DEFAULT_ARGS["no_u12_file"]
     # DEFAULT_ARGS["no_isoform_file"] = True
-    TogaMain(**DEFAULT_ARGS)
+    TogaMain(**DEFAULT_ARGS, cmd=cmd)
 
 
 if __name__ == "__main__":

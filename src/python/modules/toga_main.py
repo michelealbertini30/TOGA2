@@ -178,6 +178,7 @@ class TogaMain(CommandLineManager):
         bigwig2wig_binary: Optional[os.PathLike],
         bedtobigbed_binary: Optional[Union[os.PathLike, None]],
         ixixx_binary: Optional[Union[os.PathLike, None]],
+        cmd: str,
         # version: Optional[bool],
     ) -> None:
         self.v: bool = verbose | debug
@@ -338,6 +339,8 @@ class TogaMain(CommandLineManager):
         self.legacy_chain_feature_extraction: bool = legacy_chain_feature_extraction
         self.parallel_process_names: List[str] = []
 
+        self.cmd: str = cmd
+
         self.output: str = self._abspath(
             output if output else hex_dir_name("toga2_run")#dir_name_by_date("toga2_run")
         )
@@ -377,7 +380,7 @@ class TogaMain(CommandLineManager):
         )
         self.ucsc_dir: str = os.path.join(self.output, "ucsc_browser_files")
         self.arg_file: str = os.path.join(
-            self.logs, f"project_args_{self.project_id}.tsv"
+            self.logs, f"project_args_{self.project_id}.{self.project_arg_format}"
         )
         self.log_file: str = os.path.join(self.logs, f"{self.project_id}.log")
         self.failed_batches_file: str = os.path.join(
@@ -3262,6 +3265,7 @@ class TogaMain(CommandLineManager):
             isoform_file=self.isoform_file,
             u12_file=self.u12_file,
             spliceai_dir=self.spliceai_dir,
+            cmd=self.cmd,
         ).summary()
         self._to_log("TOGA2 run summary:\n%s\n" % summary)
         self._to_log("The same summary can be found at %s" % self.summary)
