@@ -1038,7 +1038,6 @@ class LogParserForSummary(CommandLineManager):
     def parse_tsv(self) -> Dict[str, Union[str, None]]:
         """Extracts args from the TSV-format (legacy) project arguments file"""
         args: Dict[str, Union[str, None]] = {arg: None for arg in ALL_ARGS}
-        output: Union[str, None] = None
         for data in read_tab(self.args_file):
             if data[0] == REF_2BIT:
                 if not os.path.exists(data[1]):
@@ -1157,8 +1156,6 @@ class LogParserForSummary(CommandLineManager):
             if data[0] == QUERY_NAME:
                 value: Union[str, None] = None if data[1] == NONE else data[1]
                 args[data[0]] = value
-            if data[0] == OUTPUT:
-                output: Union[str, None] = None if data[1] == NONE else data[1]
         missing_args: List[str] = [
             x for x, y in args.items() if y is None and x in MANDATORY_ARGS
         ]
