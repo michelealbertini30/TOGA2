@@ -2672,16 +2672,15 @@ def orthogroups(**kwargs) -> None:
       TOGA2.ortho_map.tsv    — full orthogroup membership per family
       (prefix changes to PANTHER when --panther is provided)
     """
-    import logging as _logging
     from src.python.modules.toga2orthogroups import run as _run
 
-    _log = _logging.getLogger("src.python.modules.toga2orthogroups")
-    _handler = _logging.StreamHandler()
-    _handler.setFormatter(_logging.Formatter("%(message)s"))
+    _log = logging.getLogger("src.python.modules.toga2orthogroups")
+    _handler = logging.StreamHandler()
+    _handler.setFormatter(logging.Formatter("%(message)s"))
     _log.addHandler(_handler)
     _log.propagate = False
     if kwargs.get("verbose"):
-        _log.setLevel(_logging.DEBUG)
+        _log.setLevel(logging.DEBUG)
     _run(**kwargs)
 
 
