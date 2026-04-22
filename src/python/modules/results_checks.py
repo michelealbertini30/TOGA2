@@ -1151,7 +1151,7 @@ class LogParserForSummary(CommandLineManager):
                 for attr, expected_name in EXPECTED_OUTPUT_FILE_NAMES.items():
                     expected_path: str = os.path.join(data[1], expected_name)
                     if not os.path.exists(expected_path):
-                        self._die("Output file %s does not exist")
+                        self._die("Output file %s does not exist" % expected_name)
                     args[attr] = expected_path
             if data[0] == QUERY_NAME:
                 value: Union[str, None] = None if data[1] == NONE else data[1]
