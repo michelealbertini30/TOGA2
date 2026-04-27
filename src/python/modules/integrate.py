@@ -151,7 +151,7 @@ class BedRecord:
             name = self.name
             if num != 0:
                 name += f"${num}"
-            yield line.format(f"{prefix}.{name}", CLASS_TO_COL[self.loss_status])
+            yield line.format((prefix + "." + name) if prefix else name, CLASS_TO_COL[self.loss_status])
 
     def coords(self) -> Tuple[int, int]:
         return (self.start, self.end)
@@ -442,7 +442,8 @@ class AnnotationIntegrator(CommandLineManager):
                     )
                 # if status not in self.accepted_statuses:
                 #     continue
-                name: str = data[3]
+                # name: str = data[3]
+                name: str = f"{species}.{data[3]}"
                 if "," in name:
                     # name = name.split("$")[0]
                     name, segment = name.split("$")
@@ -505,7 +506,8 @@ class AnnotationIntegrator(CommandLineManager):
                 ## TODO: Array length check
                 if data[0] == EXON_HEADER:
                     continue
-                proj: str = data[0]
+                # proj: str = data[0]
+                proj: str = f"{species}.{data[0]}"
                 if proj in self.paralog_pool:
                     proj += "#paralog"
                 elif proj in self.ppgene_pool:
@@ -545,7 +547,8 @@ class AnnotationIntegrator(CommandLineManager):
                 data: List[str] = line.strip().split("\t")
                 if not data:
                     continue
-                gene, tr = data
+                # gene, tr = data
+                gene, tr = map(lambda x: f"{species}.{x}", data)
                 self.ref_proj2gene[tr] = gene
 
     def get_overlapping_genes(self, species: str) -> None:
@@ -570,7 +573,8 @@ class AnnotationIntegrator(CommandLineManager):
             return
         chrom2tr_coords: Dict[str, List[Tuple[int, int]]] = defaultdict(list)
         for data in read_tab(file):
-            tr: str = data[3]
+            # tr: str = data[3]
+            tr: str = f"{species}.{data[3]}"
             chrom: str = data[0]
             start: int = int(data[6])
             end: int = int(data[7])
@@ -1084,9 +1088,10 @@ class AnnotationIntegrator(CommandLineManager):
                         ## get the reference name and add it as a prefix
                         species: str = self.query_proj2ref[proj.name]
                         ## gene isoform file; write the gene and projections names
-                        gt.write(name + "\t" + f"{species}.{proj.name}" + "\n")
+                        gt.write(name + "\t" + proj.name + "\n")
                         ## projection BED file; write the original BED line
-                        for proj_bed in proj.return_bed_line(prefix=species):
+                        # for proj_bed in proj.return_bed_line(prefix=species):
+                        for proj_bed in proj.return_bed_line():
                             qb.write(proj_bed + "\n")
 
     def prepare_ucsc_file(self) -> None:
@@ -1098,7 +1103,7 @@ class AnnotationIntegrator(CommandLineManager):
             self._to_log("Skipping the joint UCSC BigBed file creation as suggested")
             return
 
-        from get_names_from_bed import BedNameRetriever
+        from .get_names_from_bed import BedNameRetriever
 
         nuc_seqs: List[str] = []
         prot_seqs: List[str] = []
@@ -1127,11 +1132,12 @@ class AnnotationIntegrator(CommandLineManager):
                     data: List[str] = line.strip().split("\t")
                     if not data or not data[0]:
                         continue
-                    name: str = data[3]
+                    # name: str = data[3]
+                    name: str = f"{ref}.{data[3]}"
                     basename: str = base_proj_name(name)
                     if basename not in self.final_projections:
                         continue
-                    name = f"{ref}.{name}"
+                    # name already has ref prefix from line above
                     data[3] = name
                     line = "\t".join(data)
                     h.write(line + "\n")
