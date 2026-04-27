@@ -2149,7 +2149,7 @@ class TogaMain(CommandLineManager):
             self.min_orth_chain_score,
         ]
         if self.use_ld_model:
-            args.extend(("--ld_model", self.ld_model))
+            args.extend(("--long_distance_model", self.ld_model))
         if self.legacy_chain_feature_extraction:
             args.append("--legacy")
         ChainClassifier(args, standalone_mode=False)
