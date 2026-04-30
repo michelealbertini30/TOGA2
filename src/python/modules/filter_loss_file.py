@@ -194,6 +194,7 @@ class LossFileFilter(CommandLineManager):
             elif data[0] == GENE:
                 gene2loss[data[1]] = data[2]
         ## for transcripts, check if they still have any projections
+        self._to_log("Double-checking the transcript level loss classification")
         for tr, status in tr2loss.items():
             ## the transcript has any orhtologous projections reported: proceed
             if tr in tr2best_loss:
@@ -207,6 +208,7 @@ class LossFileFilter(CommandLineManager):
             status = MISSING
             tr2loss[tr] = status
             self.loss_out.write(f"{TRANSCRIPT}\t{tr}\t{status}\n")
+        self._to_log("Double-checking the gene level loss classification")
         for gene, status in gene2loss.items():
             if any(x in tr2best_loss for x in gene2trs.get(gene, [])):
                 best_losses: List[Union[str, None]] = [
@@ -219,9 +221,19 @@ class LossFileFilter(CommandLineManager):
             if status in MISSING_STATS:
                 self.loss_out.write(f"{GENE}\t{gene}\t{status}\n")
                 continue
-            max_tr_stat: str = max(
-                [tr2loss.get(x) for x in gene2trs.get(gene, [])], key=lambda x: CLASS_TO_NUM[x]
-            )
+            all_trs: List[str] = gene2trs.get(gene, [])
+            if not all_trs:
+                self._die("No transcripts found for gene %s" % gene)
+            all_statuses: List[str] = []
+            for transcript in all_trs:
+                tr_stat: Union[str, None] = tr2loss.get(transcript)
+                if tr_stat is None:
+                    self._to_log(
+                        "No loss status recorded for transcript %s" % transcript, "warning"
+                    )
+                    continue
+                all_statuses.append(tr_stat)
+            max_tr_stat: str = max(all_statuses, key=lambda x: CLASS_TO_NUM[x])
             self.loss_out.write(f"{GENE}\t{gene}\t{max_tr_stat}\n")
 
 

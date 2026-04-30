@@ -3088,6 +3088,7 @@ class TogaMain(CommandLineManager):
             self.loss_summary_extended,
             self.query_annotation_final,
             self.gene_loss_summary,
+            "-v",
         ]
         if self.isoform_file is not None:
             args.extend(("--isoform_file", self.isoform_file))
