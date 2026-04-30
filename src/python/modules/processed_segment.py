@@ -22,6 +22,7 @@ from .cesar_wrapper_constants import (
     CLASS_TO_NAME,
     COMPENSATION,
     COMPENSATION_REASON,
+    DEFAULT_STOP_MISSING,
     DEL_EXON,
     DEL_MISS,
     EX_DEL_REASON,
@@ -45,6 +46,7 @@ from .cesar_wrapper_constants import (
     MISS_EXON,
     NNN_CODON,
     NON_CANON_U2_REASON,
+    NON_CANON_STOP_IN_REF,
     NON_DEL_LOSS_THRESHOLD,
     OBSOLETE_COMPENSATION,
     ORTHOLOG,
@@ -3317,9 +3319,7 @@ class ProcessedSegment:
             last_codon, self.all_ref_codons[last_codon]
         )
         reason: str = (
-            "Non-canonical stop in reference"
-            if ref_codon not in STOPS
-            else "Missing stop masked"
+            NON_CANON_STOP_IN_REF if ref_codon not in STOPS else DEFAULT_STOP_MISSING
         )
         exon: int = self.exon_num
         if exon in self.unaligned_exons:
@@ -3746,6 +3746,8 @@ class ProcessedSegment:
         if mut.masking_reason in SAFE_SPLICE_SITE_REASONS:
             return True
         if mut.mutation_class in BIG_INDEL:
+            return True
+        if mut.mutation_class == NON_CANON_STOP_IN_REF:
             return True
         if mut.masking_reason == COMPENSATION_REASON:  ## TODO: Would this be correct?
             comp_num: int = self.frameshift2compensation[num]
