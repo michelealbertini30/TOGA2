@@ -597,8 +597,8 @@ def species_qc_diagnostics(
         if flagged:
             flagged_species.append(sp)
 
-    # One-to-one orthologs: families where no species has more than 1 copy.
-    n_one2one = sum(1 for fam_row in count_matrix if max(fam_row) <= 1 and sum(fam_row) > 0)
+    # One-to-one orthologs: families where every species has exactly 1 copy.
+    n_one2one = sum(1 for fam_row in count_matrix if all(x == 1 for x in fam_row))
 
     # --- Print formatted report ---
     output.write("\n=== Species QC Diagnostics ===\n")

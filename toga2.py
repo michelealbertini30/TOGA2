@@ -165,7 +165,7 @@ qc_options: PrettyGroup = PrettyGroup("Quality Control")
 def toga2() -> None:
     """
     \b
-    MMP""MM""YMM   .g8""8q.     .g8\"""bgd      db          `7MMF'`7MMF'
+    MMP""MM""YMM   .g8""8q.    .g8\"""bgd      db          `7MMF'`7MMF'
     P'   MM   `7 .dP'    `YM. .dP'     `M     ;MM:           MM    MM
          MM     dM'      `MM dM'       `     ,V^MM.          MM    MM
          MM     MM        MM MM             ,M  `MM          MM    MM
@@ -1301,7 +1301,7 @@ this name will be sought for in $PATH""",
 def run(**kwargs) -> None:
     """
     \b
-    MMP""MM""YMM   .g8""8q.     .g8\"""bgd      db          `7MMF'`7MMF'
+    MMP""MM""YMM   .g8""8q.    .g8\"""bgd      db          `7MMF'`7MMF'
     P'   MM   `7 .dP'    `YM. .dP'     `M     ;MM:           MM    MM
          MM     dM'      `MM dM'       `     ,V^MM.          MM    MM
          MM     MM        MM MM             ,M  `MM          MM    MM
@@ -1355,7 +1355,7 @@ def from_config(
 ) -> None:
     """
     \b
-    MMP""MM""YMM   .g8""8q.     .g8\"""bgd      db          `7MMF'`7MMF'
+    MMP""MM""YMM   .g8""8q.    .g8\"""bgd      db          `7MMF'`7MMF'
     P'   MM   `7 .dP'    `YM. .dP'     `M     ;MM:           MM    MM
          MM     dM'      `MM dM'       `     ,V^MM.          MM    MM
          MM     MM        MM MM             ,M  `MM          MM    MM
@@ -1544,7 +1544,7 @@ will be sought for in $PATH""",
 def prepare_input(**kwargs) -> None:
     """
     \b
-    MMP""MM""YMM   .g8""8q.     .g8\"""bgd      db          `7MMF'`7MMF'
+    MMP""MM""YMM   .g8""8q.    .g8\"""bgd      db          `7MMF'`7MMF'
     P'   MM   `7 .dP'    `YM. .dP'     `M     ;MM:           MM    MM
          MM     dM'      `MM dM'       `     ,V^MM.          MM    MM
          MM     MM        MM MM             ,M  `MM          MM    MM
@@ -1814,7 +1814,7 @@ log and metadata files""",
 def spliceai(**kwargs) -> None:
     """
     \b
-    MMP""MM""YMM   .g8""8q.     .g8\"""bgd      db          `7MMF'`7MMF'
+    MMP""MM""YMM   .g8""8q.    .g8\"""bgd      db          `7MMF'`7MMF'
     P'   MM   `7 .dP'    `YM. .dP'     `M     ;MM:           MM    MM
          MM     dM'      `MM dM'       `     ,V^MM.          MM    MM
          MM     MM        MM MM             ,M  `MM          MM    MM
@@ -1846,7 +1846,7 @@ def spliceai(**kwargs) -> None:
 def merge(**kwargs) -> None:
     """
     \b
-    MMP""MM""YMM   .g8""8q.     .g8\"""bgd      db          `7MMF'`7MMF'
+    MMP""MM""YMM   .g8""8q.    .g8\"""bgd      db          `7MMF'`7MMF'
     P'   MM   `7 .dP'    `YM. .dP'     `M     ;MM:           MM    MM
          MM     dM'      `MM dM'       `     ,V^MM.          MM    MM
          MM     MM        MM MM             ,M  `MM          MM    MM
@@ -2011,7 +2011,7 @@ and then for an available executable in $PATH""",
 def integrate(**kwargs) -> None:
     """
     \b
-    MMP""MM""YMM   .g8""8q.     .g8\"""bgd      db          `7MMF'`7MMF'
+    MMP""MM""YMM   .g8""8q.    .g8\"""bgd      db          `7MMF'`7MMF'
     P'   MM   `7 .dP'    `YM. .dP'     `M     ;MM:           MM    MM
          MM     dM'      `MM dM'       `     ,V^MM.          MM    MM
          MM     MM        MM MM             ,M  `MM          MM    MM
@@ -2298,7 +2298,7 @@ the executable will be sought for in PATH""",
 def sequence_alignment(**kwargs) -> None:
     """
     \b
-    MMP""MM""YMM   .g8""8q.     .g8\"""bgd      db          `7MMF'`7MMF'
+    MMP""MM""YMM   .g8""8q.    .g8\"""bgd      db          `7MMF'`7MMF'
     P'   MM   `7 .dP'    `YM. .dP'     `M     ;MM:           MM    MM
          MM     dM'      `MM dM'       `     ,V^MM.          MM    MM
          MM     MM        MM MM             ,M  `MM          MM    MM
@@ -2422,7 +2422,7 @@ def sequence_alignment(**kwargs) -> None:
 def postoga(**kwargs) -> None:
     """
     \b
-    MMP""MM""YMM   .g8""8q.     .g8\"""bgd      db          `7MMF'`7MMF'
+    MMP""MM""YMM   .g8""8q.     .g8\"""bgd     db          `7MMF'`7MMF'
     P'   MM   `7 .dP'    `YM. .dP'     `M     ;MM:           MM    MM
          MM     dM'      `MM dM'       `     ,V^MM.          MM    MM
          MM     MM        MM MM             ,M  `MM          MM    MM
@@ -2446,7 +2446,7 @@ def postoga(**kwargs) -> None:
 def cookbook() -> None:
     """
     \b
-    MMP""MM""YMM   .g8""8q.     .g8\"""bgd      db          `7MMF'`7MMF'
+    MMP""MM""YMM   .g8""8q.    .g8\"""bgd      db          `7MMF'`7MMF'
     P'   MM   `7 .dP'    `YM. .dP'     `M     ;MM:           MM    MM
          MM     dM'      `MM dM'       `     ,V^MM.          MM    MM
          MM     MM        MM MM             ,M  `MM          MM    MM
@@ -2650,7 +2650,7 @@ def test(output: Optional[click.Path]) -> None:
 def orthogroups(**kwargs) -> None:
     """
     \b
-    MMP""MM""YMM   .g8""8q.     .g8\"""bgd      db          `7MMF'`7MMF'
+    MMP""MM""YMM   .g8""8q.    .g8\"""bgd      db          `7MMF'`7MMF'
     P'   MM   `7 .dP'    `YM. .dP'     `M     ;MM:           MM    MM
          MM     dM'      `MM dM'       `     ,V^MM.          MM    MM
          MM     MM        MM MM             ,M  `MM          MM    MM
