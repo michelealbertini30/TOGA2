@@ -708,7 +708,6 @@ class InputProducer(CommandLineManager):
             f"-p {self.intronic_cores}  --min_intron_len {self.min_intron_length_intronic} "
             "--no_nc_ss_adjustment --no_abbreviate"
         )
-        print(f"{intronic_cmd=}")
         _ = self._exec(intronic_cmd, "intronIC run failed:")
         ## now, prepare the final file
         ## parse the output bed file
