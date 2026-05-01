@@ -157,6 +157,7 @@ integration_options: PrettyGroup = PrettyGroup(
 )
 out_options: PrettyGroup = PrettyGroup("Output")
 misc_options: PrettyGroup = PrettyGroup("Miscellaneous")
+qc_options: PrettyGroup = PrettyGroup("Quality Control")
 
 
 @click.group(context_settings=CONTEXT_SETTINGS, no_args_is_help=True)
@@ -164,7 +165,7 @@ misc_options: PrettyGroup = PrettyGroup("Miscellaneous")
 def toga2() -> None:
     """
     \b
-    MMP""MM""YMM   .g8""8q.     .g8\"""bgd      db          `7MMF'`7MMF'
+    MMP""MM""YMM   .g8""8q.    .g8\"""bgd      db          `7MMF'`7MMF'
     P'   MM   `7 .dP'    `YM. .dP'     `M     ;MM:           MM    MM
          MM     dM'      `MM dM'       `     ,V^MM.          MM    MM
          MM     MM        MM MM             ,M  `MM          MM    MM
@@ -1300,7 +1301,7 @@ this name will be sought for in $PATH""",
 def run(**kwargs) -> None:
     """
     \b
-    MMP""MM""YMM   .g8""8q.     .g8\"""bgd      db          `7MMF'`7MMF'
+    MMP""MM""YMM   .g8""8q.    .g8\"""bgd      db          `7MMF'`7MMF'
     P'   MM   `7 .dP'    `YM. .dP'     `M     ;MM:           MM    MM
          MM     dM'      `MM dM'       `     ,V^MM.          MM    MM
          MM     MM        MM MM             ,M  `MM          MM    MM
@@ -1355,7 +1356,7 @@ def from_config(
 ) -> None:
     """
     \b
-    MMP""MM""YMM   .g8""8q.     .g8\"""bgd      db          `7MMF'`7MMF'
+    MMP""MM""YMM   .g8""8q.    .g8\"""bgd      db          `7MMF'`7MMF'
     P'   MM   `7 .dP'    `YM. .dP'     `M     ;MM:           MM    MM
          MM     dM'      `MM dM'       `     ,V^MM.          MM    MM
          MM     MM        MM MM             ,M  `MM          MM    MM
@@ -1544,7 +1545,7 @@ will be sought for in $PATH""",
 def prepare_input(**kwargs) -> None:
     """
     \b
-    MMP""MM""YMM   .g8""8q.     .g8\"""bgd      db          `7MMF'`7MMF'
+    MMP""MM""YMM   .g8""8q.    .g8\"""bgd      db          `7MMF'`7MMF'
     P'   MM   `7 .dP'    `YM. .dP'     `M     ;MM:           MM    MM
          MM     dM'      `MM dM'       `     ,V^MM.          MM    MM
          MM     MM        MM MM             ,M  `MM          MM    MM
@@ -1814,7 +1815,7 @@ log and metadata files""",
 def spliceai(**kwargs) -> None:
     """
     \b
-    MMP""MM""YMM   .g8""8q.     .g8\"""bgd      db          `7MMF'`7MMF'
+    MMP""MM""YMM   .g8""8q.    .g8\"""bgd      db          `7MMF'`7MMF'
     P'   MM   `7 .dP'    `YM. .dP'     `M     ;MM:           MM    MM
          MM     dM'      `MM dM'       `     ,V^MM.          MM    MM
          MM     MM        MM MM             ,M  `MM          MM    MM
@@ -1846,7 +1847,7 @@ def spliceai(**kwargs) -> None:
 def merge(**kwargs) -> None:
     """
     \b
-    MMP""MM""YMM   .g8""8q.     .g8\"""bgd      db          `7MMF'`7MMF'
+    MMP""MM""YMM   .g8""8q.    .g8\"""bgd      db          `7MMF'`7MMF'
     P'   MM   `7 .dP'    `YM. .dP'     `M     ;MM:           MM    MM
          MM     dM'      `MM dM'       `     ,V^MM.          MM    MM
          MM     MM        MM MM             ,M  `MM          MM    MM
@@ -2011,7 +2012,7 @@ and then for an available executable in $PATH""",
 def integrate(**kwargs) -> None:
     """
     \b
-    MMP""MM""YMM   .g8""8q.     .g8\"""bgd      db          `7MMF'`7MMF'
+    MMP""MM""YMM   .g8""8q.    .g8\"""bgd      db          `7MMF'`7MMF'
     P'   MM   `7 .dP'    `YM. .dP'     `M     ;MM:           MM    MM
          MM     dM'      `MM dM'       `     ,V^MM.          MM    MM
          MM     MM        MM MM             ,M  `MM          MM    MM
@@ -2298,7 +2299,7 @@ the executable will be sought for in PATH""",
 def sequence_alignment(**kwargs) -> None:
     """
     \b
-    MMP""MM""YMM   .g8""8q.     .g8\"""bgd      db          `7MMF'`7MMF'
+    MMP""MM""YMM   .g8""8q.    .g8\"""bgd      db          `7MMF'`7MMF'
     P'   MM   `7 .dP'    `YM. .dP'     `M     ;MM:           MM    MM
          MM     dM'      `MM dM'       `     ,V^MM.          MM    MM
          MM     MM        MM MM             ,M  `MM          MM    MM
@@ -2422,7 +2423,7 @@ def sequence_alignment(**kwargs) -> None:
 def postoga(**kwargs) -> None:
     """
     \b
-    MMP""MM""YMM   .g8""8q.     .g8\"""bgd      db          `7MMF'`7MMF'
+    MMP""MM""YMM   .g8""8q.     .g8\"""bgd     db          `7MMF'`7MMF'
     P'   MM   `7 .dP'    `YM. .dP'     `M     ;MM:           MM    MM
          MM     dM'      `MM dM'       `     ,V^MM.          MM    MM
          MM     MM        MM MM             ,M  `MM          MM    MM
@@ -2446,7 +2447,7 @@ def postoga(**kwargs) -> None:
 def cookbook() -> None:
     """
     \b
-    MMP""MM""YMM   .g8""8q.     .g8\"""bgd      db          `7MMF'`7MMF'
+    MMP""MM""YMM   .g8""8q.    .g8\"""bgd      db          `7MMF'`7MMF'
     P'   MM   `7 .dP'    `YM. .dP'     `M     ;MM:           MM    MM
          MM     dM'      `MM dM'       `     ,V^MM.          MM    MM
          MM     MM        MM MM             ,M  `MM          MM    MM
@@ -2529,6 +2530,151 @@ def test(output: Optional[click.Path]) -> None:
     # DEFAULT_ARGS["no_u12_file"]
     # DEFAULT_ARGS["no_isoform_file"] = True
     TogaMain(**DEFAULT_ARGS, cmd=cmd)
+
+
+@toga2.command(
+    context_settings=CONTEXT_SETTINGS,
+    no_args_is_help=True,
+    short_help="Build orthogroups from TOGA2 pairwise orthology annotations",
+)
+@mandatory.option(
+    "--toga_dir",
+    "-t",
+    type=click.Path(exists=True),
+    metavar="DIR",
+    cls=DependentOption,
+    required=True,
+    help="Directory with per-species TOGA2 output subdirectories",
+)
+@mandatory.option(
+    "--species_list",
+    "-s",
+    "species_list_path",
+    type=click.Path(exists=True),
+    metavar="FILE",
+    cls=DependentOption,
+    required=True,
+    help="Newline-separated list of species names",
+)
+@mandatory.option(
+    "--transcripts_bed",
+    "-b",
+    type=click.Path(exists=True),
+    metavar="FILE",
+    cls=DependentOption,
+    required=True,
+    help="Reference transcript BED file (used to filter out sex-chromosome transcripts)",
+)
+@mandatory.option(
+    "--isoforms",
+    "-i",
+    type=click.Path(exists=True),
+    metavar="FILE",
+    cls=DependentOption,
+    required=True,
+    help="TOGA2 isoforms file (gene-to-transcript mapping)",
+)
+@out_options.option(
+    "--output",
+    "-o",
+    "out_dir",
+    type=click.Path(exists=False),
+    metavar="DIR",
+    required=True,
+    help="Output directory",
+)
+@input_options.option(
+    "--panther",
+    type=click.Path(exists=True),
+    metavar="FILE",
+    default=None,
+    show_default=True,
+    help="PANTHER database flat file; if provided, enables PANTHER-guided family merging",
+)
+@control_flow_options.option(
+    "--force",
+    "-f",
+    is_flag=True,
+    default=False,
+    show_default=True,
+    help="Overwrite output files if they already exist",
+)
+@misc_options.option(
+    "--include_ul",
+    "-ul",
+    is_flag=True,
+    default=False,
+    show_default=True,
+    help="Include UL (Uncertain Loss) transcripts when filtering by loss status",
+)
+@qc_options.option(
+    "--z_threshold",
+    "-z",
+    type=float,
+    metavar="FLOAT",
+    default=3.0,
+    show_default=True,
+    help="Z-score threshold for per-species copy-number outlier detection",
+)
+@qc_options.option(
+    "--outlier_fraction",
+    "-of",
+    type=click.FloatRange(min=0.0, max=1.0),
+    metavar="FLOAT",
+    default=0.05,
+    show_default=True,
+    help="Maximum outlier family fraction before a species is flagged",
+)
+@qc_options.option(
+    "--no_qc",
+    is_flag=True,
+    default=False,
+    show_default=True,
+    help="Skip species QC diagnostics",
+)
+@verbosity_options.option(
+    "--verbose",
+    "-v",
+    is_flag=True,
+    default=False,
+    show_default=True,
+    help="Print per-species processing stats (enables DEBUG logging)",
+)
+def orthogroups(**kwargs) -> None:
+    """
+    \b
+    MMP""MM""YMM   .g8""8q.    .g8\"""bgd      db          `7MMF'`7MMF'
+    P'   MM   `7 .dP'    `YM. .dP'     `M     ;MM:           MM    MM
+         MM     dM'      `MM dM'       `     ,V^MM.          MM    MM
+         MM     MM        MM MM             ,M  `MM          MM    MM
+         MM     MM.      ,MP MM.    `7MMF'  AbmmmqMA         MM    MM
+         MM     `Mb.    ,dP' `Mb.     MM   A'     VML        MM    MM
+       .JMML.     `"bmmd"'     `"bmmmdPY .AMA.   .AMMA.    .JMML..JMML.
+
+    \b
+    orthogroups - Build orthogroups from TOGA2 pairwise orthology annotations.
+
+    \b
+    Constructs orthogroups by modelling (reference_gene - query_gene) orthology
+    relationships as a graph and extracting connected components with Union-Find.
+    Optionally merges with PANTHER family assignments for broader family grouping.
+
+    \b
+    Output files (written to --output directory):
+      TOGA2.orthogroups.tsv  — copy-number count table (CAFE5-compatible)
+      TOGA2.ortho_map.tsv    — full orthogroup membership per family
+      (prefix changes to PANTHER when --panther is provided)
+    """
+    from src.python.modules.toga2orthogroups import run as _run
+
+    _log = logging.getLogger("src.python.modules.toga2orthogroups")
+    _handler = logging.StreamHandler()
+    _handler.setFormatter(logging.Formatter("%(message)s"))
+    _log.addHandler(_handler)
+    _log.propagate = False
+    if kwargs.get("verbose"):
+        _log.setLevel(logging.DEBUG)
+    _run(**kwargs)
 
 
 if __name__ == "__main__":
