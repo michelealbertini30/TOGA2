@@ -48,6 +48,9 @@ CANON: str = "canon"
 NONCANON: str = "nonCanon"
 SEP_DUMMY: str = "n"
 NAME: str = "name"
+TYPE_ID: str = "type_id"
+DEFAULT_CLASS_COL: int = 12
+
 
 TOGA2_ROOT: str = get_upper_dir(__file__, 4)
 DEFAULT_TWOBITTOFA: str = os.path.join(TOGA2_ROOT, "bin", "twoBitToFa")
@@ -753,6 +756,7 @@ class InputProducer(CommandLineManager):
                 else open(self.all_intron_bed, "w")
             ) as ah,
         ):
+            class_col: int = DEFAULT_CLASS_COL
             for i, line in enumerate(ih, start=1):
                 data: List[str] = line.strip().split("\t")
                 if not data:
@@ -766,10 +770,14 @@ class InputProducer(CommandLineManager):
                         % (i, len(data))
                     )
                 if data[0] == NAME:
+                    try:
+                        class_col: int = data.index(TYPE_ID)
+                    except ValueError:
+                        class_col: int = DEFAULT_CLASS_COL
                     continue
                 name: str = data[0].split(";")[0]
                 dinuc: str = data[2]
-                intron_class: str = data[12].upper()
+                intron_class: str = data[class_col].upper()
                 upd_name: str = f"{name}_{intron_class}_{dinuc}"
                 out_line: str = "\t".join(intron2coords[name]).format(upd_name)
                 ## for TOGA2 input, only U12 and non-canonical U2 introns are required
