@@ -2599,6 +2599,13 @@ def test(output: Optional[click.Path]) -> None:
     show_default=True,
     help="Overwrite output files if they already exist",
 )
+@control_flow_options.option(
+    "--one-to-one",
+    is_flag=True,
+    default=False,
+    show_default=True,
+    help="only write list of one-to-one orthologs",
+)
 @misc_options.option(
     "--include_ul",
     "-ul",
@@ -2615,15 +2622,6 @@ def test(output: Optional[click.Path]) -> None:
     default=3.0,
     show_default=True,
     help="Z-score threshold for per-species copy-number outlier detection",
-)
-@qc_options.option(
-    "--outlier_fraction",
-    "-of",
-    type=click.FloatRange(min=0.0, max=1.0),
-    metavar="FLOAT",
-    default=0.05,
-    show_default=True,
-    help="Maximum outlier family fraction before a species is flagged",
 )
 @qc_options.option(
     "--no_qc",
